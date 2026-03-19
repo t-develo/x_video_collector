@@ -7,6 +7,9 @@ public sealed class Category
     public int SortOrder { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 
+    // EF Core 用
+    private Category() { Id = default; Name = string.Empty; }
+
     private Category(Guid id, string name, int sortOrder, DateTimeOffset createdAt)
     {
         Id = id;

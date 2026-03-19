@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using XVideoCollector.Application.UseCases;
 using XVideoCollector.Domain.Enums;
@@ -9,8 +8,7 @@ using XVideoCollector.Domain.Enums;
 namespace XVideoCollector.Functions.Functions;
 
 public sealed class TagFunctions(
-    ManageTagsUseCase manageTags,
-    ILogger<TagFunctions> logger)
+    ManageTagsUseCase manageTags)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

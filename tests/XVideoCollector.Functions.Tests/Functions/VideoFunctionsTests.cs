@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using System.Text;
 using System.Text.Json;
@@ -61,8 +60,7 @@ public sealed class VideoFunctionsTests
             deleteVideo?.Object ?? DefaultDeleteMock().Object,
             downloadVideo?.Object ?? DefaultDownloadMock().Object,
             searchVideos?.Object ?? DefaultSearchMock().Object,
-            blobStorage?.Object ?? Blob.Object,
-            NullLogger<VideoFunctions>.Instance);
+            blobStorage?.Object ?? Blob.Object);
     }
 
     private static VideoDto CreateVideoDto(Guid? id = null, string? blobPath = null) => new(

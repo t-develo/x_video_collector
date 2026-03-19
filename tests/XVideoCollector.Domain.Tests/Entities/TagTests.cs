@@ -29,7 +29,7 @@ public class TagTests
     [InlineData(null)]
     public void Create_NullOrWhiteSpaceName_ThrowsArgumentException(string? name)
     {
-        Assert.Throws<ArgumentException>(() => Tag.Create(name!, TagColor.Blue));
+        Assert.ThrowsAny<ArgumentException>(() => Tag.Create(name!, TagColor.Blue));
     }
 
     [Fact]

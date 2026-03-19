@@ -1,15 +1,13 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using XVideoCollector.Application.UseCases;
 
 namespace XVideoCollector.Functions.Functions;
 
 public sealed class CategoryFunctions(
-    ManageCategoriesUseCase manageCategories,
-    ILogger<CategoryFunctions> logger)
+    ManageCategoriesUseCase manageCategories)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

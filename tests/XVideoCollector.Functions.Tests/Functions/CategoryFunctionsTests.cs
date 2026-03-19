@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using System.Text;
 using System.Text.Json;
@@ -18,7 +17,7 @@ public sealed class CategoryFunctionsTests
     private static Mock<ManageCategoriesUseCase> DefaultMock() => new(CategoryRepo.Object);
 
     private static CategoryFunctions CreateSut(Mock<ManageCategoriesUseCase>? manage = null) =>
-        new(manage?.Object ?? DefaultMock().Object, NullLogger<CategoryFunctions>.Instance);
+        new(manage?.Object ?? DefaultMock().Object);
 
     private static CategoryDto CreateCategoryDto(Guid? id = null) => new(
         Id: id ?? Guid.NewGuid(),

@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using XVideoCollector.Application.Dtos;
 using XVideoCollector.Application.Services;
@@ -17,8 +16,7 @@ public sealed class VideoFunctions(
     DeleteVideoUseCase deleteVideo,
     DownloadVideoUseCase downloadVideo,
     SearchVideosUseCase searchVideos,
-    IBlobStorageService blobStorageService,
-    ILogger<VideoFunctions> logger)
+    IBlobStorageService blobStorageService)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

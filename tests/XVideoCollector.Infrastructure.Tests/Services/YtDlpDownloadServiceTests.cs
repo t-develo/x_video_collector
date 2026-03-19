@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using XVideoCollector.Infrastructure.Options;
 using XVideoCollector.Infrastructure.Services;
+using MsOptions = Microsoft.Extensions.Options;
 
 namespace XVideoCollector.Infrastructure.Tests.Services;
 
@@ -9,7 +9,7 @@ public class YtDlpDownloadServiceTests
 {
     private static YtDlpDownloadService CreateService(YtDlpOptions? opts = null)
     {
-        var options = Options.Create(opts ?? new YtDlpOptions());
+        var options = MsOptions.Options.Create(opts ?? new YtDlpOptions());
         return new YtDlpDownloadService(options, NullLogger<YtDlpDownloadService>.Instance);
     }
 
@@ -99,7 +99,7 @@ public class YtDlpDownloadServiceTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
             service.DownloadAsync("https://x.com/user/status/123", cts.Token));
     }
 

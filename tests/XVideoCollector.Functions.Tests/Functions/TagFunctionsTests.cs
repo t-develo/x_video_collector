@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using System.Text;
 using System.Text.Json;
@@ -19,7 +18,7 @@ public sealed class TagFunctionsTests
     private static Mock<ManageTagsUseCase> DefaultMock() => new(TagRepo.Object);
 
     private static TagFunctions CreateSut(Mock<ManageTagsUseCase>? manage = null) =>
-        new(manage?.Object ?? DefaultMock().Object, NullLogger<TagFunctions>.Instance);
+        new(manage?.Object ?? DefaultMock().Object);
 
     private static TagDto CreateTagDto(Guid? id = null) => new(
         Id: id ?? Guid.NewGuid(),

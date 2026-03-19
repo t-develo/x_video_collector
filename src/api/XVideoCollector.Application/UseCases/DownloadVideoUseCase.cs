@@ -20,10 +20,13 @@ public sealed class DownloadVideoUseCase(
         video.StartDownloading();
         await videoRepository.UpdateAsync(video, cancellationToken);
 
+        string? tempDir = null;
         try
         {
             var result = await downloadService.DownloadAsync(
                 video.TweetUrl.Value, cancellationToken);
+
+            tempDir = Path.GetDirectoryName(result.FilePath);
 
             video.StartProcessing();
             await videoRepository.UpdateAsync(video, cancellationToken);
@@ -59,6 +62,11 @@ public sealed class DownloadVideoUseCase(
             video.MarkFailed();
             await videoRepository.UpdateAsync(video, cancellationToken);
             throw;
+        }
+        finally
+        {
+            if (tempDir is not null && Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
         }
     }
 }

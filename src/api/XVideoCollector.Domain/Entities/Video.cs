@@ -17,6 +17,11 @@ public sealed class Video
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
+    // EF Core 用
+#pragma warning disable CS8618
+    private Video() { }
+#pragma warning restore CS8618
+
     private Video(
         Guid id,
         TweetUrl tweetUrl,

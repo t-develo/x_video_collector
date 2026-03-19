@@ -9,6 +9,9 @@ public sealed class Tag
     public TagColor Color { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 
+    // EF Core 用
+    private Tag() { Id = default; Name = string.Empty; }
+
     private Tag(Guid id, string name, TagColor color, DateTimeOffset createdAt)
     {
         Id = id;

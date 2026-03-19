@@ -31,11 +31,16 @@ public static class DependencyInjection
         services.Configure<BlobStorageOptions>(
             configuration.GetSection(BlobStorageOptions.SectionName));
 
+        services.Configure<YtDlpOptions>(
+            configuration.GetSection(YtDlpOptions.SectionName));
+
         services.AddScoped<IVideoRepository, VideoRepository>();
         services.AddScoped<ITagRepository, TagRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IVideoTagRepository, VideoTagRepository>();
         services.AddScoped<IBlobStorageService, BlobStorageService>();
+        services.AddScoped<IVideoDownloadService, YtDlpDownloadService>();
+        services.AddScoped<IThumbnailService, FfmpegThumbnailService>();
 
         return services;
     }

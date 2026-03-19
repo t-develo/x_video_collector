@@ -3,11 +3,11 @@ using XVideoCollector.Domain.Repositories;
 
 namespace XVideoCollector.Application.UseCases;
 
-public sealed class GetVideoUseCase(
+public class GetVideoUseCase(
     IVideoRepository videoRepository,
     ITagRepository tagRepository)
 {
-    public async Task<VideoDto?> ExecuteAsync(
+    public virtual async Task<VideoDto?> ExecuteAsync(
         Guid videoId,
         CancellationToken cancellationToken = default)
     {

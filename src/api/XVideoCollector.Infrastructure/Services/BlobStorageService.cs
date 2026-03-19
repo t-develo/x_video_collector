@@ -45,6 +45,22 @@ internal sealed class BlobStorageService : IBlobStorageService
         return response.Value.Content;
     }
 
+    public Task<string> GetSasUrlAsync(
+        string blobPath,
+        TimeSpan expiry,
+        CancellationToken cancellationToken = default)
+    {
+        var (containerName, blobName) = ParseBlobPath(blobPath);
+        var container = _serviceClient.GetBlobContainerClient(containerName);
+        var blob = container.GetBlobClient(blobName);
+
+        var sasUri = blob.GenerateSasUri(
+            Azure.Storage.Sas.BlobSasPermissions.Read,
+            DateTimeOffset.UtcNow.Add(expiry));
+
+        return Task.FromResult(sasUri.ToString());
+    }
+
     private async Task<string> UploadAsync(
         string containerName,
         Stream stream,

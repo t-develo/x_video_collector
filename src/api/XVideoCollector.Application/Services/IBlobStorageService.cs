@@ -6,4 +6,5 @@ public interface IBlobStorageService
     Task<string> UploadThumbnailAsync(Stream stream, string blobName, CancellationToken cancellationToken = default);
     Task DeleteAsync(string blobPath, CancellationToken cancellationToken = default);
     Task<Stream> OpenReadAsync(string blobPath, CancellationToken cancellationToken = default);
+    Task<string> GetSasUrlAsync(string blobPath, TimeSpan expiry, CancellationToken cancellationToken = default);
 }

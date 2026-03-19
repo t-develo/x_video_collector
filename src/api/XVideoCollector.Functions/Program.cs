@@ -1,8 +1,24 @@
-using Microsoft.Extensions.Hosting;
+using Microsoft.Azure.Functions.Worker.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json.Serialization;
+using XVideoCollector.Application;
+using XVideoCollector.Functions.Middleware;
 using XVideoCollector.Infrastructure;
 
-var builder = Host.CreateApplicationBuilder(args);
+var builder = FunctionsApplication.CreateBuilder(args);
 
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.ConfigureFunctionsWebApplication();
 
-builder.Build().Run();
+builder.Services
+    .AddApplication()
+    .AddInfrastructure(builder.Configuration);
+
+builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+});
+
+var app = builder.Build();
+app.UseMiddleware<ExceptionMiddleware>();
+app.Run();

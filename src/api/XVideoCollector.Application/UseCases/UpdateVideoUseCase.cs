@@ -4,12 +4,12 @@ using XVideoCollector.Domain.ValueObjects;
 
 namespace XVideoCollector.Application.UseCases;
 
-public sealed class UpdateVideoUseCase(
+public class UpdateVideoUseCase(
     IVideoRepository videoRepository,
     ITagRepository tagRepository,
     IVideoTagRepository videoTagRepository)
 {
-    public async Task<VideoDto> ExecuteAsync(
+    public virtual async Task<VideoDto> ExecuteAsync(
         UpdateVideoRequest request,
         CancellationToken cancellationToken = default)
     {

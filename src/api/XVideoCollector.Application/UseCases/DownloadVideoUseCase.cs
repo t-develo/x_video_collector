@@ -4,13 +4,13 @@ using XVideoCollector.Domain.ValueObjects;
 
 namespace XVideoCollector.Application.UseCases;
 
-public sealed class DownloadVideoUseCase(
+public class DownloadVideoUseCase(
     IVideoRepository videoRepository,
     IVideoDownloadService downloadService,
     IBlobStorageService blobStorageService,
     IThumbnailService thumbnailService)
 {
-    public async Task ExecuteAsync(
+    public virtual async Task ExecuteAsync(
         Guid videoId,
         CancellationToken cancellationToken = default)
     {

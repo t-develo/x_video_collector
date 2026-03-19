@@ -13,6 +13,7 @@ public sealed class Video
     public BlobPath? ThumbnailBlobPath { get; private set; }
     public int? DurationSeconds { get; private set; }
     public long? FileSizeBytes { get; private set; }
+    public Guid? CategoryId { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
@@ -99,6 +100,12 @@ public sealed class Video
         ArgumentNullException.ThrowIfNull(title);
 
         Title = title;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void SetCategory(Guid? categoryId)
+    {
+        CategoryId = categoryId;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

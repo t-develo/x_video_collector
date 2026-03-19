@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/api/">
+    <Project Path="src/api/XVideoCollector.Application/XVideoCollector.Application.csproj" />
+    <Project Path="src/api/XVideoCollector.Domain/XVideoCollector.Domain.csproj" />
+    <Project Path="src/api/XVideoCollector.Functions/XVideoCollector.Functions.csproj" />
+    <Project Path="src/api/XVideoCollector.Infrastructure/XVideoCollector.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/XVideoCollector.Application.Tests/XVideoCollector.Application.Tests.csproj" />
+    <Project Path="tests/XVideoCollector.Domain.Tests/XVideoCollector.Domain.Tests.csproj" />
+    <Project Path="tests/XVideoCollector.Functions.Tests/XVideoCollector.Functions.Tests.csproj" />
+    <Project Path="tests/XVideoCollector.Infrastructure.Tests/XVideoCollector.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

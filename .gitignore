@@ -1,0 +1,41 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.DotSettings.user
+TestResults/
+publish/
+
+# NuGet
+*.nupkg
+.nuget/
+packages/
+
+# Azure Functions
+local.settings.json
+.azure/
+
+# Node.js / frontend
+node_modules/
+dist/
+.parcel-cache/
+.cache/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/settings.json
+*.swp
+*~
+
+# Secrets
+*.pfx
+*.p12
+appsettings.Development.json

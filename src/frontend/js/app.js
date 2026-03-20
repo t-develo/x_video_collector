@@ -3,6 +3,7 @@
 import { addRoute, startRouter } from './router.js';
 import { renderHeader } from './components/header.js';
 import { createPlaceholderPage } from './pages/placeholder.js';
+import { renderRegisterPage } from './pages/register.js';
 
 function init() {
   // ヘッダーレンダリング
@@ -12,7 +13,7 @@ function init() {
   // ルート登録
   addRoute('/', createPlaceholderPage('動画一覧'));
   addRoute('/videos', createPlaceholderPage('動画一覧'));
-  addRoute('/register', createPlaceholderPage('動画登録'));
+  addRoute('/register', renderRegisterPage);
   addRoute('/tags', createPlaceholderPage('タグ管理'));
 
   // ルーター起動

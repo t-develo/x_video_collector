@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using XVideoCollector.Infrastructure.Options;
 using XVideoCollector.Infrastructure.Services;
+using MsOptions = Microsoft.Extensions.Options;
 
 namespace XVideoCollector.Infrastructure.Tests.Services;
 
@@ -9,7 +9,7 @@ public class FfmpegThumbnailServiceTests
 {
     private static FfmpegThumbnailService CreateService(YtDlpOptions? opts = null)
     {
-        var options = Options.Create(opts ?? new YtDlpOptions());
+        var options = MsOptions.Options.Create(opts ?? new YtDlpOptions());
         return new FfmpegThumbnailService(options, NullLogger<FfmpegThumbnailService>.Instance);
     }
 

@@ -5,10 +5,10 @@ using XVideoCollector.Domain.ValueObjects;
 
 namespace XVideoCollector.Application.UseCases;
 
-public sealed class RegisterVideoUseCase(
+public class RegisterVideoUseCase(
     IVideoRepository videoRepository)
 {
-    public async Task<VideoDto> ExecuteAsync(
+    public virtual async Task<VideoDto> ExecuteAsync(
         RegisterVideoRequest request,
         CancellationToken cancellationToken = default)
     {

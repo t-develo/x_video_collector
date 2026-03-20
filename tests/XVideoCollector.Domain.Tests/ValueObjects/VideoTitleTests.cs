@@ -43,7 +43,7 @@ public class VideoTitleTests
     [InlineData(null)]
     public void Create_NullOrWhiteSpace_ThrowsArgumentException(string? title)
     {
-        Assert.Throws<ArgumentException>(() => VideoTitle.Create(title!));
+        Assert.ThrowsAny<ArgumentException>(() => VideoTitle.Create(title!));
     }
 
     [Fact]

@@ -5,16 +5,16 @@ using XVideoCollector.Domain.Repositories;
 
 namespace XVideoCollector.Application.UseCases;
 
-public sealed class ManageTagsUseCase(ITagRepository tagRepository)
+public class ManageTagsUseCase(ITagRepository tagRepository)
 {
-    public async Task<IReadOnlyList<TagDto>> GetAllAsync(
+    public virtual async Task<IReadOnlyList<TagDto>> GetAllAsync(
         CancellationToken cancellationToken = default)
     {
         var tags = await tagRepository.GetAllAsync(cancellationToken);
         return tags.Select(VideoMapper.ToDto).ToList();
     }
 
-    public async Task<TagDto?> GetByIdAsync(
+    public virtual async Task<TagDto?> GetByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
@@ -22,7 +22,7 @@ public sealed class ManageTagsUseCase(ITagRepository tagRepository)
         return tag is null ? null : VideoMapper.ToDto(tag);
     }
 
-    public async Task<TagDto> CreateAsync(
+    public virtual async Task<TagDto> CreateAsync(
         string name,
         TagColor color,
         CancellationToken cancellationToken = default)
@@ -32,7 +32,7 @@ public sealed class ManageTagsUseCase(ITagRepository tagRepository)
         return VideoMapper.ToDto(tag);
     }
 
-    public async Task<TagDto> UpdateAsync(
+    public virtual async Task<TagDto> UpdateAsync(
         Guid id,
         string name,
         TagColor color,
@@ -46,7 +46,7 @@ public sealed class ManageTagsUseCase(ITagRepository tagRepository)
         return VideoMapper.ToDto(tag);
     }
 
-    public async Task DeleteAsync(
+    public virtual async Task DeleteAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {

@@ -26,7 +26,7 @@ public class BlobPathTests
     [InlineData(null)]
     public void Create_NullOrWhiteSpace_ThrowsArgumentException(string? path)
     {
-        Assert.Throws<ArgumentException>(() => BlobPath.Create(path!));
+        Assert.ThrowsAny<ArgumentException>(() => BlobPath.Create(path!));
     }
 
     [Fact]

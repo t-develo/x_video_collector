@@ -23,6 +23,7 @@ public sealed class YtDlpDownloadService(
         string tweetUrl,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ValidateUrl(tweetUrl);
 
         var tempDir = Path.Combine(Path.GetTempPath(), $"ytdlp_{Guid.NewGuid():N}");
@@ -58,6 +59,10 @@ public sealed class YtDlpDownloadService(
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
             throw new ArgumentException($"Invalid URL: {url}", nameof(url));
+
+        if (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)
+            throw new ArgumentException(
+                $"URL scheme not allowed: {uri.Scheme}", nameof(url));
 
         if (!AllowedHosts.Contains(uri.Host, StringComparer.OrdinalIgnoreCase))
             throw new ArgumentException(

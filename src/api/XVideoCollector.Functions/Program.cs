@@ -1,8 +1,27 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using XVideoCollector.Application;
+using XVideoCollector.Functions.Middleware;
 using XVideoCollector.Infrastructure;
 
-var builder = Host.CreateApplicationBuilder(args);
+var host = new HostBuilder()
+    .ConfigureFunctionsWebApplication(workerApp =>
+    {
+        workerApp.UseMiddleware<ExceptionMiddleware>();
+    })
+    .ConfigureServices((context, services) =>
+    {
+        services.AddApplication();
+        services.AddInfrastructure(context.Configuration);
 
-builder.Services.AddInfrastructure(builder.Configuration);
+        services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
+        {
+            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        });
+    })
+    .Build();
 
-builder.Build().Run();
+await host.RunAsync();

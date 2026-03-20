@@ -3,12 +3,12 @@ using XVideoCollector.Domain.Repositories;
 
 namespace XVideoCollector.Application.UseCases;
 
-public sealed class DeleteVideoUseCase(
+public class DeleteVideoUseCase(
     IVideoRepository videoRepository,
     IVideoTagRepository videoTagRepository,
     IBlobStorageService blobStorageService)
 {
-    public async Task ExecuteAsync(
+    public virtual async Task ExecuteAsync(
         Guid videoId,
         CancellationToken cancellationToken = default)
     {

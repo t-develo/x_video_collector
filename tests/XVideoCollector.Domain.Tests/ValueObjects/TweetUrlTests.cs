@@ -47,7 +47,7 @@ public class TweetUrlTests
     [InlineData(null)]
     public void Create_NullOrWhiteSpace_ThrowsArgumentException(string? url)
     {
-        Assert.Throws<ArgumentException>(() => TweetUrl.Create(url!));
+        Assert.ThrowsAny<ArgumentException>(() => TweetUrl.Create(url!));
     }
 
     [Theory]

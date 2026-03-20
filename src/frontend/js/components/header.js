@@ -1,6 +1,6 @@
 // components/header.js — サイトヘッダーコンポーネント
 
-import { createElement } from '../utils/dom.js';
+import { createElement, clearChildren } from '../utils/dom.js';
 import { navigateTo } from '../router.js';
 
 const NAV_LINKS = [
@@ -10,24 +10,62 @@ const NAV_LINKS = [
   { label: 'カテゴリ管理', path: '/categories' },
 ];
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
 /**
- * ハンバーガーアイコン SVG を返す
- * @param {boolean} isOpen
- * @returns {string}
+ * SVG line 要素を生成する
+ * @param {number} x1
+ * @param {number} y1
+ * @param {number} x2
+ * @param {number} y2
+ * @returns {SVGLineElement}
  */
-function menuIconSvg(isOpen) {
+function createSvgLine(x1, y1, x2, y2) {
+  const line = document.createElementNS(SVG_NS, 'line');
+  line.setAttribute('x1', String(x1));
+  line.setAttribute('y1', String(y1));
+  line.setAttribute('x2', String(x2));
+  line.setAttribute('y2', String(y2));
+  return line;
+}
+
+/**
+ * SVG アイコン要素を生成する
+ * @returns {SVGSVGElement}
+ */
+function createSvgIcon() {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('width', '18');
+  svg.setAttribute('height', '18');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  return svg;
+}
+
+/**
+ * ハンバーガーアイコン（開閉状態に応じた SVG）をボタンに設定する
+ * @param {HTMLButtonElement} btn
+ * @param {boolean} isOpen
+ */
+function setMenuIcon(btn, isOpen) {
+  clearChildren(btn);
+  const svg = createSvgIcon();
   if (isOpen) {
     // ✕ アイコン
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-    </svg>`;
+    svg.appendChild(createSvgLine(18, 6, 6, 18));
+    svg.appendChild(createSvgLine(6, 6, 18, 18));
+  } else {
+    // ハンバーガーアイコン
+    svg.appendChild(createSvgLine(3, 6, 21, 6));
+    svg.appendChild(createSvgLine(3, 12, 21, 12));
+    svg.appendChild(createSvgLine(3, 18, 21, 18));
   }
-  // ハンバーガーアイコン
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-  </svg>`;
+  btn.appendChild(svg);
 }
 
 /**
@@ -63,14 +101,14 @@ export function renderHeader(container) {
   menuBtn.setAttribute('aria-label', 'メニューを開く');
   menuBtn.setAttribute('aria-expanded', 'false');
   menuBtn.setAttribute('aria-controls', 'header-nav');
-  menuBtn.innerHTML = menuIconSvg(false);
+  setMenuIcon(menuBtn, false);
 
   menuBtn.addEventListener('click', () => {
     isMenuOpen = !isMenuOpen;
     nav.classList.toggle('header-nav--open', isMenuOpen);
     menuBtn.setAttribute('aria-expanded', String(isMenuOpen));
     menuBtn.setAttribute('aria-label', isMenuOpen ? 'メニューを閉じる' : 'メニューを開く');
-    menuBtn.innerHTML = menuIconSvg(isMenuOpen);
+    setMenuIcon(menuBtn, isMenuOpen);
   });
 
   // ナビリンククリックでメニューを閉じる（モバイル）
@@ -80,7 +118,7 @@ export function renderHeader(container) {
       nav.classList.remove('header-nav--open');
       menuBtn.setAttribute('aria-expanded', 'false');
       menuBtn.setAttribute('aria-label', 'メニューを開く');
-      menuBtn.innerHTML = menuIconSvg(false);
+      setMenuIcon(menuBtn, false);
     }
   });
 

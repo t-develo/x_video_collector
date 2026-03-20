@@ -19,9 +19,11 @@ vi.mock('../../../src/frontend/js/components/videoCard.js', () => ({
   }),
 }));
 
-// router をモック
+// router をモック（クエリパラメータ関数を含む）
 vi.mock('../../../src/frontend/js/router.js', () => ({
   navigateTo: vi.fn(),
+  getCurrentQueryParams: vi.fn(() => new URLSearchParams()),
+  setQueryParams: vi.fn(),
 }));
 
 /** テスト用動画データを生成する */
@@ -124,6 +126,19 @@ describe('createPagination', () => {
   });
 });
 
+/**
+ * api.get を URL に応じて適切な値を返すようにセットアップする
+ * @param {import('vitest').MockInstance} mock - api.get のモック
+ * @param {object|Array} videosResponse - /videos* へのレスポンス
+ */
+async function setupApiMock(mock, videosResponse) {
+  mock.mockImplementation((url) => {
+    if (url === '/tags') return Promise.resolve([]);
+    if (url === '/categories') return Promise.resolve([]);
+    return Promise.resolve(videosResponse);
+  });
+}
+
 describe('renderVideoListPage', () => {
   let container;
 
@@ -131,11 +146,15 @@ describe('renderVideoListPage', () => {
     vi.clearAllMocks();
     document.body.innerHTML = '<div id="main"></div>';
     container = document.getElementById('main');
+
+    // getCurrentQueryParams のデフォルトモックを設定
+    const { getCurrentQueryParams } = await import('../../../src/frontend/js/router.js');
+    getCurrentQueryParams.mockReturnValue(new URLSearchParams());
   });
 
   it('動画がある場合にカードグリッドが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockResolvedValue({ items: makeVideos(3), totalCount: 3, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, { items: makeVideos(3), totalCount: 3, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -147,7 +166,7 @@ describe('renderVideoListPage', () => {
 
   it('動画がない場合に空状態が表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockResolvedValue({ items: [], totalCount: 0, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, { items: [], totalCount: 0, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -157,7 +176,7 @@ describe('renderVideoListPage', () => {
 
   it('20件以下ではページネーションが表示されない', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockResolvedValue({ items: makeVideos(10), totalCount: 10, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, { items: makeVideos(10), totalCount: 10, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -166,7 +185,7 @@ describe('renderVideoListPage', () => {
 
   it('21件以上ではページネーションが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockResolvedValue({ items: makeVideos(25), totalCount: 25, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, { items: makeVideos(25), totalCount: 25, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -175,7 +194,7 @@ describe('renderVideoListPage', () => {
 
   it('件数が表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockResolvedValue({ items: makeVideos(5), totalCount: 5, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, { items: makeVideos(5), totalCount: 5, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -185,7 +204,10 @@ describe('renderVideoListPage', () => {
 
   it('API エラー時にエラーメッセージが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockRejectedValue(new Error('Network error'));
+    api.get.mockImplementation((url) => {
+      if (url === '/tags' || url === '/categories') return Promise.resolve([]);
+      return Promise.reject(new Error('Network error'));
+    });
 
     await renderVideoListPage(container);
 
@@ -195,7 +217,7 @@ describe('renderVideoListPage', () => {
 
   it('ソートセレクトが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockResolvedValue({ items: makeVideos(3), totalCount: 3, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, { items: makeVideos(3), totalCount: 3, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -204,7 +226,7 @@ describe('renderVideoListPage', () => {
 
   it('ページタイトルが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockResolvedValue({ items: [], totalCount: 0, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, { items: [], totalCount: 0, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -215,19 +237,40 @@ describe('renderVideoListPage', () => {
 
   it('API レスポンスの items が undefined でも空状態を表示する', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockResolvedValue({});
+    await setupApiMock(api.get, {});
 
     await renderVideoListPage(container);
 
     expect(container.querySelector('.video-list-empty')).not.toBeNull();
   });
 
-  it('/videos?page=1&pageSize=1000 エンドポイントを呼び出す', async () => {
+  it('検索条件なしで /videos?page=1&pageSize=20 エンドポイントを呼び出す', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockResolvedValue({ items: [] });
+    await setupApiMock(api.get, { items: [] });
 
     await renderVideoListPage(container);
 
-    expect(api.get).toHaveBeenCalledWith('/videos?page=1&pageSize=1000');
+    const videoCalls = api.get.mock.calls.filter(([url]) => url.startsWith('/videos'));
+    expect(videoCalls.length).toBeGreaterThanOrEqual(1);
+    expect(videoCalls[videoCalls.length - 1][0]).toBe('/videos?page=1&pageSize=20');
+  });
+
+  it('検索バーが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    await setupApiMock(api.get, { items: [] });
+
+    await renderVideoListPage(container);
+
+    expect(container.querySelector('.search-bar')).not.toBeNull();
+    expect(container.querySelector('.search-bar__input')).not.toBeNull();
+  });
+
+  it('フィルタートグルボタンが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    await setupApiMock(api.get, { items: [] });
+
+    await renderVideoListPage(container);
+
+    expect(container.querySelector('.filter-toggle-btn')).not.toBeNull();
   });
 });

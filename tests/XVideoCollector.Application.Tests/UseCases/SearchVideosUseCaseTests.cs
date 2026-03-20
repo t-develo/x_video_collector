@@ -2,6 +2,7 @@ using Moq;
 using XVideoCollector.Application.Dtos;
 using XVideoCollector.Application.UseCases;
 using XVideoCollector.Domain.Entities;
+using XVideoCollector.Domain.Enums;
 using XVideoCollector.Domain.Repositories;
 using XVideoCollector.Domain.ValueObjects;
 
@@ -72,5 +73,109 @@ public sealed class SearchVideosUseCaseTests
 
         Assert.Equal(totalCount, result.TotalCount);
         Assert.Equal(expectedPages, result.TotalPages);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithStatusFilter_PassesStatusToQuery()
+    {
+        VideoSearchQuery? capturedQuery = null;
+        _videoRepoMock
+            .Setup(r => r.SearchPagedAsync(It.IsAny<VideoSearchQuery>(), 0, 20, default))
+            .Callback<VideoSearchQuery, int, int, CancellationToken>((q, _, _, _) => capturedQuery = q)
+            .ReturnsAsync((new List<Video>(), 0));
+        _tagRepoMock
+            .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<Tag>>());
+
+        var request = new SearchVideoRequest(Status: VideoStatus.Ready);
+        await _sut.ExecuteAsync(request);
+
+        Assert.NotNull(capturedQuery);
+        Assert.Equal(VideoStatus.Ready, capturedQuery!.Status);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithTagIds_PassesTagIdsToQuery()
+    {
+        var tagId = Guid.NewGuid();
+        VideoSearchQuery? capturedQuery = null;
+        _videoRepoMock
+            .Setup(r => r.SearchPagedAsync(It.IsAny<VideoSearchQuery>(), 0, 20, default))
+            .Callback<VideoSearchQuery, int, int, CancellationToken>((q, _, _, _) => capturedQuery = q)
+            .ReturnsAsync((new List<Video>(), 0));
+        _tagRepoMock
+            .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<Tag>>());
+
+        var request = new SearchVideoRequest(TagIds: [tagId]);
+        await _sut.ExecuteAsync(request);
+
+        Assert.NotNull(capturedQuery);
+        Assert.NotNull(capturedQuery!.TagIds);
+        Assert.Contains(tagId, capturedQuery.TagIds!);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithCategoryId_PassesCategoryIdToQuery()
+    {
+        var categoryId = Guid.NewGuid();
+        VideoSearchQuery? capturedQuery = null;
+        _videoRepoMock
+            .Setup(r => r.SearchPagedAsync(It.IsAny<VideoSearchQuery>(), 0, 20, default))
+            .Callback<VideoSearchQuery, int, int, CancellationToken>((q, _, _, _) => capturedQuery = q)
+            .ReturnsAsync((new List<Video>(), 0));
+        _tagRepoMock
+            .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<Tag>>());
+
+        var request = new SearchVideoRequest(CategoryId: categoryId);
+        await _sut.ExecuteAsync(request);
+
+        Assert.NotNull(capturedQuery);
+        Assert.Equal(categoryId, capturedQuery!.CategoryId);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CompoundConditions_PassesAllFiltersToQuery()
+    {
+        var tagId = Guid.NewGuid();
+        var categoryId = Guid.NewGuid();
+        VideoSearchQuery? capturedQuery = null;
+        _videoRepoMock
+            .Setup(r => r.SearchPagedAsync(It.IsAny<VideoSearchQuery>(), 0, 20, default))
+            .Callback<VideoSearchQuery, int, int, CancellationToken>((q, _, _, _) => capturedQuery = q)
+            .ReturnsAsync((new List<Video>(), 0));
+        _tagRepoMock
+            .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<Tag>>());
+
+        var request = new SearchVideoRequest(
+            Keyword: "複合",
+            Status: VideoStatus.Ready,
+            TagIds: [tagId],
+            CategoryId: categoryId);
+        await _sut.ExecuteAsync(request);
+
+        Assert.NotNull(capturedQuery);
+        Assert.Equal("複合", capturedQuery!.Keyword);
+        Assert.Equal(VideoStatus.Ready, capturedQuery.Status);
+        Assert.Contains(tagId, capturedQuery.TagIds!);
+        Assert.Equal(categoryId, capturedQuery.CategoryId);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_PageOutOfRange_NormalizesToPage1()
+    {
+        _videoRepoMock
+            .Setup(r => r.SearchPagedAsync(It.IsAny<VideoSearchQuery>(), 0, 20, default))
+            .ReturnsAsync((new List<Video>(), 0));
+        _tagRepoMock
+            .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<Tag>>());
+
+        var request = new SearchVideoRequest(Page: -1, PageSize: 0);
+        var result = await _sut.ExecuteAsync(request);
+
+        Assert.Equal(1, result.Page);
     }
 }

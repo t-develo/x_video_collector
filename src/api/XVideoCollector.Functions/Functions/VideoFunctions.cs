@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using XVideoCollector.Application.Dtos;
 using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Application.Services;
+using XVideoCollector.Domain.Enums;
 using XVideoCollector.Functions.Helpers;
 
 namespace XVideoCollector.Functions.Functions;
@@ -121,8 +122,33 @@ public sealed class VideoFunctions(
         var page = ParseIntQuery(req, "page", 1);
         var pageSize = ParseIntQuery(req, "pageSize", 20);
 
+        VideoStatus? status = null;
+        var statusStr = req.Query["status"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(statusStr) && Enum.TryParse<VideoStatus>(statusStr, ignoreCase: true, out var parsedStatus))
+            status = parsedStatus;
+
+        Guid? categoryId = null;
+        var categoryIdStr = req.Query["categoryId"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(categoryIdStr) && Guid.TryParse(categoryIdStr, out var parsedCategoryId))
+            categoryId = parsedCategoryId;
+
+        IReadOnlyList<Guid>? tagIds = null;
+        var tagsStr = req.Query["tagIds"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(tagsStr))
+        {
+            tagIds = tagsStr
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => Guid.TryParse(s, out var g) ? (Guid?)g : null)
+                .Where(g => g.HasValue)
+                .Select(g => g!.Value)
+                .ToList();
+        }
+
         var request = new SearchVideoRequest(
             Keyword: string.IsNullOrWhiteSpace(keyword) ? null : keyword,
+            Status: status,
+            TagIds: tagIds,
+            CategoryId: categoryId,
             Page: page,
             PageSize: pageSize);
 

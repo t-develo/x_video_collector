@@ -39,11 +39,44 @@ export function navigateTo(path) {
 }
 
 /**
- * 現在のハッシュからパスを取得する
+ * 現在のハッシュからパス部分（クエリパラメータを除く）を取得する
  * @returns {string}
  */
 export function getCurrentPath() {
-  return window.location.hash.slice(1) || '/';
+  const hash = window.location.hash.slice(1) || '/';
+  return hash.split('?')[0] || '/';
+}
+
+/**
+ * 現在のハッシュからクエリパラメータを取得する
+ * @returns {URLSearchParams}
+ */
+export function getCurrentQueryParams() {
+  const hash = window.location.hash.slice(1) || '/';
+  const queryIndex = hash.indexOf('?');
+  if (queryIndex === -1) return new URLSearchParams();
+  return new URLSearchParams(hash.slice(queryIndex + 1));
+}
+
+/**
+ * 現在のパスにクエリパラメータを設定する（hashchange を発火させず履歴を置き換え）
+ * @param {Record<string, string|null>} params - null の値はパラメータを削除する
+ */
+export function setQueryParams(params) {
+  const current = getCurrentQueryParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === null || value === '') {
+      current.delete(key);
+    } else {
+      current.set(key, value);
+    }
+  }
+  const path = getCurrentPath();
+  const queryStr = current.toString();
+  // history.replaceState を使用して hashchange を発火させない。
+  // window.location.replace() は hashchange を発火させるため、
+  // ルーターが再レンダリングを行い fetchAndRender と競合する。
+  window.history.replaceState(null, '', `${window.location.pathname}#${path}${queryStr ? `?${queryStr}` : ''}`);
 }
 
 /**

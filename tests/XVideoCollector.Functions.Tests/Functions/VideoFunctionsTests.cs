@@ -207,4 +207,118 @@ public sealed class VideoFunctionsTests
 
         Assert.IsType<ConflictObjectResult>(result);
     }
+
+    [Fact]
+    public async Task SearchVideos_WithKeyword_ReturnsOk()
+    {
+        var paginated = new PaginatedResult<VideoListItemDto>([], 0, 1, 20);
+
+        var searchMock = new Mock<ISearchVideosUseCase>();
+        searchMock
+            .Setup(x => x.ExecuteAsync(It.IsAny<SearchVideoRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(paginated);
+
+        var req = CreateRequest();
+        req.QueryString = new QueryString("?q=test&page=1&pageSize=10");
+
+        var sut = CreateSut(searchVideos: searchMock);
+        var result = await sut.SearchVideosAsync(req, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(paginated, ok.Value);
+        searchMock.Verify(x => x.ExecuteAsync(
+            It.Is<SearchVideoRequest>(r => r.Keyword == "test" && r.Page == 1 && r.PageSize == 10),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SearchVideos_WithStatusFilter_PassesStatusToUseCase()
+    {
+        var paginated = new PaginatedResult<VideoListItemDto>([], 0, 1, 20);
+
+        var searchMock = new Mock<ISearchVideosUseCase>();
+        searchMock
+            .Setup(x => x.ExecuteAsync(It.IsAny<SearchVideoRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(paginated);
+
+        var req = CreateRequest();
+        req.QueryString = new QueryString("?status=Ready");
+
+        var sut = CreateSut(searchVideos: searchMock);
+        await sut.SearchVideosAsync(req, CancellationToken.None);
+
+        searchMock.Verify(x => x.ExecuteAsync(
+            It.Is<SearchVideoRequest>(r => r.Status == VideoStatus.Ready),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SearchVideos_WithTagIds_PassesTagIdsToUseCase()
+    {
+        var tagId1 = Guid.NewGuid();
+        var tagId2 = Guid.NewGuid();
+        var paginated = new PaginatedResult<VideoListItemDto>([], 0, 1, 20);
+
+        var searchMock = new Mock<ISearchVideosUseCase>();
+        searchMock
+            .Setup(x => x.ExecuteAsync(It.IsAny<SearchVideoRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(paginated);
+
+        var req = CreateRequest();
+        req.QueryString = new QueryString($"?tagIds={tagId1},{tagId2}");
+
+        var sut = CreateSut(searchVideos: searchMock);
+        await sut.SearchVideosAsync(req, CancellationToken.None);
+
+        searchMock.Verify(x => x.ExecuteAsync(
+            It.Is<SearchVideoRequest>(r =>
+                r.TagIds != null &&
+                r.TagIds.Count == 2 &&
+                r.TagIds.Contains(tagId1) &&
+                r.TagIds.Contains(tagId2)),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SearchVideos_WithCategoryId_PassesCategoryIdToUseCase()
+    {
+        var categoryId = Guid.NewGuid();
+        var paginated = new PaginatedResult<VideoListItemDto>([], 0, 1, 20);
+
+        var searchMock = new Mock<ISearchVideosUseCase>();
+        searchMock
+            .Setup(x => x.ExecuteAsync(It.IsAny<SearchVideoRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(paginated);
+
+        var req = CreateRequest();
+        req.QueryString = new QueryString($"?categoryId={categoryId}");
+
+        var sut = CreateSut(searchVideos: searchMock);
+        await sut.SearchVideosAsync(req, CancellationToken.None);
+
+        searchMock.Verify(x => x.ExecuteAsync(
+            It.Is<SearchVideoRequest>(r => r.CategoryId == categoryId),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SearchVideos_WithInvalidStatus_IgnoresStatusFilter()
+    {
+        var paginated = new PaginatedResult<VideoListItemDto>([], 0, 1, 20);
+
+        var searchMock = new Mock<ISearchVideosUseCase>();
+        searchMock
+            .Setup(x => x.ExecuteAsync(It.IsAny<SearchVideoRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(paginated);
+
+        var req = CreateRequest();
+        req.QueryString = new QueryString("?status=InvalidValue");
+
+        var sut = CreateSut(searchVideos: searchMock);
+        await sut.SearchVideosAsync(req, CancellationToken.None);
+
+        searchMock.Verify(x => x.ExecuteAsync(
+            It.Is<SearchVideoRequest>(r => r.Status == null),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

@@ -66,6 +66,17 @@ const MOCK_CATEGORIES = [
   { id: 'cat-2', name: '技術', sortOrder: 1 },
 ];
 
+/** api.get の標準モック（stream URL を含む） */
+function mockApiGet(api, overrides = {}) {
+  api.get.mockImplementation((path) => {
+    if (path.endsWith('/stream')) return Promise.resolve({ streamUrl: 'https://blob.example.com/sas-token' });
+    if (path.includes('/videos/')) return Promise.resolve(overrides.video ?? MOCK_VIDEO);
+    if (path === '/tags') return Promise.resolve(overrides.tags ?? MOCK_TAGS);
+    if (path === '/categories') return Promise.resolve(overrides.categories ?? MOCK_CATEGORIES);
+    return Promise.reject(new Error('Unknown path'));
+  });
+}
+
 describe('renderVideoDetailPage', () => {
   let container;
 
@@ -77,27 +88,17 @@ describe('renderVideoDetailPage', () => {
 
   it('動画情報が表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockImplementation((path) => {
-      if (path.includes('/videos/')) return Promise.resolve(MOCK_VIDEO);
-      if (path === '/tags') return Promise.resolve(MOCK_TAGS);
-      if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
-      return Promise.reject(new Error('Unknown path'));
-    });
+    mockApiGet(api);
 
     await renderVideoDetailPage(container, 'video-1');
 
-    expect(container.querySelector('.detail-title').textContent).toBe('テスト動画');
+    expect(container.querySelector('.detail-title-input').value).toBe('テスト動画');
     expect(container.querySelector('.detail-meta').textContent).toContain('@testuser');
   });
 
   it('戻るボタンが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockImplementation((path) => {
-      if (path.includes('/videos/')) return Promise.resolve(MOCK_VIDEO);
-      if (path === '/tags') return Promise.resolve(MOCK_TAGS);
-      if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
-      return Promise.reject(new Error('Unknown path'));
-    });
+    mockApiGet(api);
 
     await renderVideoDetailPage(container, 'video-1');
 
@@ -109,12 +110,7 @@ describe('renderVideoDetailPage', () => {
   it('戻るボタンをクリックすると動画一覧に遷移する', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
     const { navigateTo } = await import('../../../src/frontend/js/router.js');
-    api.get.mockImplementation((path) => {
-      if (path.includes('/videos/')) return Promise.resolve(MOCK_VIDEO);
-      if (path === '/tags') return Promise.resolve(MOCK_TAGS);
-      if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
-      return Promise.reject(new Error('Unknown path'));
-    });
+    mockApiGet(api);
 
     await renderVideoDetailPage(container, 'video-1');
 
@@ -124,12 +120,7 @@ describe('renderVideoDetailPage', () => {
 
   it('カテゴリドロップダウンが表示され現在のカテゴリが選択されている', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockImplementation((path) => {
-      if (path.includes('/videos/')) return Promise.resolve(MOCK_VIDEO);
-      if (path === '/tags') return Promise.resolve(MOCK_TAGS);
-      if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
-      return Promise.reject(new Error('Unknown path'));
-    });
+    mockApiGet(api);
 
     await renderVideoDetailPage(container, 'video-1');
 
@@ -142,12 +133,7 @@ describe('renderVideoDetailPage', () => {
 
   it('タグチップが全タグ分表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockImplementation((path) => {
-      if (path.includes('/videos/')) return Promise.resolve(MOCK_VIDEO);
-      if (path === '/tags') return Promise.resolve(MOCK_TAGS);
-      if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
-      return Promise.reject(new Error('Unknown path'));
-    });
+    mockApiGet(api);
 
     await renderVideoDetailPage(container, 'video-1');
 
@@ -157,12 +143,7 @@ describe('renderVideoDetailPage', () => {
 
   it('動画に設定済みのタグが selected 状態になっている', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockImplementation((path) => {
-      if (path.includes('/videos/')) return Promise.resolve(MOCK_VIDEO);
-      if (path === '/tags') return Promise.resolve(MOCK_TAGS);
-      if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
-      return Promise.reject(new Error('Unknown path'));
-    });
+    mockApiGet(api);
 
     await renderVideoDetailPage(container, 'video-1');
 
@@ -175,12 +156,7 @@ describe('renderVideoDetailPage', () => {
 
   it('タグチップをクリックすると選択状態がトグルされる', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockImplementation((path) => {
-      if (path.includes('/videos/')) return Promise.resolve(MOCK_VIDEO);
-      if (path === '/tags') return Promise.resolve(MOCK_TAGS);
-      if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
-      return Promise.reject(new Error('Unknown path'));
-    });
+    mockApiGet(api);
 
     await renderVideoDetailPage(container, 'video-1');
 
@@ -198,12 +174,7 @@ describe('renderVideoDetailPage', () => {
   it('保存ボタンをクリックすると api.put が正しいデータで呼ばれる', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
     const { toast } = await import('../../../src/frontend/js/components/toast.js');
-    api.get.mockImplementation((path) => {
-      if (path.includes('/videos/')) return Promise.resolve(MOCK_VIDEO);
-      if (path === '/tags') return Promise.resolve(MOCK_TAGS);
-      if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
-      return Promise.reject(new Error('Unknown path'));
-    });
+    mockApiGet(api);
     api.put.mockResolvedValue({ ...MOCK_VIDEO });
 
     await renderVideoDetailPage(container, 'video-1');
@@ -223,12 +194,7 @@ describe('renderVideoDetailPage', () => {
 
   it('タグを変更してから保存すると更新されたタグ ID が送信される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockImplementation((path) => {
-      if (path.includes('/videos/')) return Promise.resolve(MOCK_VIDEO);
-      if (path === '/tags') return Promise.resolve(MOCK_TAGS);
-      if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
-      return Promise.reject(new Error('Unknown path'));
-    });
+    mockApiGet(api);
     api.put.mockResolvedValue({ ...MOCK_VIDEO });
 
     await renderVideoDetailPage(container, 'video-1');
@@ -269,12 +235,7 @@ describe('renderVideoDetailPage', () => {
 
   it('タグが0件の場合にヒントメッセージが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    api.get.mockImplementation((path) => {
-      if (path.includes('/videos/')) return Promise.resolve({ ...MOCK_VIDEO, tags: [] });
-      if (path === '/tags') return Promise.resolve([]);
-      if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
-      return Promise.reject(new Error('Unknown path'));
-    });
+    mockApiGet(api, { video: { ...MOCK_VIDEO, tags: [] }, tags: [] });
 
     await renderVideoDetailPage(container, 'video-1');
 
@@ -284,7 +245,55 @@ describe('renderVideoDetailPage', () => {
 
   it('保存ボタンが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const saveBtn = container.querySelector('.detail-save-btn');
+    expect(saveBtn).not.toBeNull();
+    expect(saveBtn.textContent).toBe('変更を保存');
+  });
+
+  // ========== 動画プレイヤー ==========
+
+  it('blobPath がある場合に動画プレイヤーが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const videoEl = container.querySelector('.detail-video-player');
+    expect(videoEl).not.toBeNull();
+    expect(videoEl.tagName.toLowerCase()).toBe('video');
+    expect(videoEl.hasAttribute('controls')).toBe(true);
+  });
+
+  it('blobPath がない場合に動画プレイヤーが表示されない', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api, { video: { ...MOCK_VIDEO, blobPath: null } });
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    expect(container.querySelector('.detail-video-player')).toBeNull();
+  });
+
+  it('動画プレイヤーに SAS URL がセットされる', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    // stream API 呼び出しの非同期解決を待つ
+    await new Promise(r => setTimeout(r, 0));
+
+    const videoEl = container.querySelector('.detail-video-player');
+    expect(videoEl.src).toContain('https://blob.example.com/sas-token');
+  });
+
+  it('ストリーム URL 取得失敗時にエラーメッセージが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
     api.get.mockImplementation((path) => {
+      if (path.endsWith('/stream')) return Promise.reject(new Error('Stream error'));
       if (path.includes('/videos/')) return Promise.resolve(MOCK_VIDEO);
       if (path === '/tags') return Promise.resolve(MOCK_TAGS);
       if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
@@ -292,9 +301,165 @@ describe('renderVideoDetailPage', () => {
     });
 
     await renderVideoDetailPage(container, 'video-1');
+    await new Promise(r => setTimeout(r, 0));
+
+    const status = container.querySelector('.detail-player-status');
+    expect(status).not.toBeNull();
+    expect(status.textContent).toContain('読み込みに失敗');
+  });
+
+  // ========== ステータスバッジ ==========
+
+  it('ステータスバッジが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const badge = container.querySelector('.detail-status-badge');
+    expect(badge).not.toBeNull();
+    expect(badge.textContent).toBe('Ready');
+    expect(badge.classList.contains('detail-status-badge--ready')).toBe(true);
+  });
+
+  // ========== 元ツイートリンク ==========
+
+  it('元ツイートへのリンクが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const link = container.querySelector('.detail-tweet-link');
+    expect(link).not.toBeNull();
+    expect(link.getAttribute('href')).toBe('https://x.com/user/status/123');
+    expect(link.getAttribute('target')).toBe('_blank');
+  });
+
+  // ========== インラインタイトル編集 ==========
+
+  it('タイトル入力フィールドに現在のタイトルが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const titleInput = container.querySelector('.detail-title-input');
+    expect(titleInput).not.toBeNull();
+    expect(titleInput.value).toBe('テスト動画');
+  });
+
+  it('タイトルを変更してから保存すると新しいタイトルが送信される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+    api.put.mockResolvedValue({ ...MOCK_VIDEO });
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const titleInput = container.querySelector('.detail-title-input');
+    titleInput.value = '新しいタイトル';
 
     const saveBtn = container.querySelector('.detail-save-btn');
-    expect(saveBtn).not.toBeNull();
-    expect(saveBtn.textContent).toBe('変更を保存');
+    saveBtn.click();
+
+    await new Promise(r => setTimeout(r, 0));
+
+    const callArgs = api.put.mock.calls[0][1];
+    expect(callArgs.title).toBe('新しいタイトル');
+  });
+
+  it('タイトルを空にして保存すると null が送信される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+    api.put.mockResolvedValue({ ...MOCK_VIDEO });
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const titleInput = container.querySelector('.detail-title-input');
+    titleInput.value = '   ';
+
+    const saveBtn = container.querySelector('.detail-save-btn');
+    saveBtn.click();
+
+    await new Promise(r => setTimeout(r, 0));
+
+    const callArgs = api.put.mock.calls[0][1];
+    expect(callArgs.title).toBeNull();
+  });
+
+  // ========== 削除フロー ==========
+
+  it('削除ボタンが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const deleteBtn = container.querySelector('.detail-delete-btn');
+    expect(deleteBtn).not.toBeNull();
+    expect(deleteBtn.textContent).toContain('削除');
+  });
+
+  it('削除ボタンをクリックすると確認モーダルが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    container.querySelector('.detail-delete-btn').click();
+
+    const modal = container.querySelector('.detail-modal');
+    expect(modal).not.toBeNull();
+    expect(container.querySelector('.detail-modal__title').textContent).toContain('削除');
+  });
+
+  it('キャンセルボタンをクリックするとモーダルが閉じる', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    container.querySelector('.detail-delete-btn').click();
+    expect(container.querySelector('.detail-modal-overlay')).not.toBeNull();
+
+    container.querySelector('.detail-modal__cancel-btn').click();
+    expect(container.querySelector('.detail-modal-overlay')).toBeNull();
+  });
+
+  it('確認ボタンをクリックすると api.delete が呼ばれ一覧へ遷移する', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    const { toast } = await import('../../../src/frontend/js/components/toast.js');
+    const { navigateTo } = await import('../../../src/frontend/js/router.js');
+    mockApiGet(api);
+    api.delete.mockResolvedValue(null);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    container.querySelector('.detail-delete-btn').click();
+    container.querySelector('.detail-modal__confirm-btn').click();
+
+    await new Promise(r => setTimeout(r, 0));
+
+    expect(api.delete).toHaveBeenCalledWith('/videos/video-1');
+    expect(toast.success).toHaveBeenCalled();
+    expect(navigateTo).toHaveBeenCalledWith('/videos');
+  });
+
+  it('削除 API エラー時にエラートーストが表示される', async () => {
+    const { api, ApiError } = await import('../../../src/frontend/js/api.js');
+    const { toast } = await import('../../../src/frontend/js/components/toast.js');
+    mockApiGet(api);
+    api.delete.mockRejectedValue(new ApiError(500, 'Internal Server Error', 'error'));
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    container.querySelector('.detail-delete-btn').click();
+    container.querySelector('.detail-modal__confirm-btn').click();
+
+    await new Promise(r => setTimeout(r, 0));
+
+    expect(toast.error).toHaveBeenCalled();
+    // モーダルはまだ表示されている
+    expect(container.querySelector('.detail-modal-overlay')).not.toBeNull();
   });
 });

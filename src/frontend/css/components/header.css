@@ -42,6 +42,11 @@
   background-color: var(--color-bg-hover);
 }
 
+.header-nav-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 .header-nav-link.active {
   color: var(--color-accent);
   background-color: rgba(0, 212, 170, 0.1);
@@ -54,4 +59,74 @@
   gap: var(--space-sm);
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
+}
+
+/* ========== ハンバーガーメニューボタン ========== */
+
+.header-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.header-menu-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.header-menu-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ========== モバイルナビ ========== */
+
+@media (max-width: 768px) {
+  #site-header {
+    padding: 0 var(--space-md);
+    gap: var(--space-md);
+    position: relative;
+  }
+
+  .header-menu-btn {
+    display: flex;
+  }
+
+  .header-user {
+    display: none;
+  }
+
+  .header-nav {
+    display: none;
+    position: absolute;
+    top: var(--header-height);
+    left: 0;
+    right: 0;
+    background-color: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: var(--space-sm) var(--space-md);
+    z-index: 99;
+  }
+
+  .header-nav--open {
+    display: flex;
+  }
+
+  .header-nav-link {
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+  }
 }

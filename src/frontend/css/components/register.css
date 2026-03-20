@@ -201,3 +201,15 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
+
+/* ========== レスポンシブ ========== */
+
+@media (max-width: 768px) {
+  .register-page {
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .register-form {
+    padding: var(--space-lg);
+  }
+}

@@ -1,3 +1,27 @@
+/* ========== スキップリンク（アクセシビリティ） ========== */
+
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-accent);
+  color: #0a0a0a;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  z-index: 9999;
+  transition: top var(--transition-fast);
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: 2px solid #0a0a0a;
+  outline-offset: 2px;
+}
+
+/* ========== アプリレイアウト ========== */
+
 #app {
   display: grid;
   grid-template-rows: var(--header-height) 1fr;
@@ -9,6 +33,12 @@
   max-width: var(--content-max-width);
   width: 100%;
   margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  #main-content {
+    padding: var(--space-md);
+  }
 }
 
 .not-found-wrapper {

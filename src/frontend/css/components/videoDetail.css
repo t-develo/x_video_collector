@@ -377,3 +377,35 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ========== レスポンシブ ========== */
+
+@media (max-width: 768px) {
+  .video-detail-page {
+    padding: var(--space-md);
+  }
+
+  .detail-title {
+    font-size: var(--text-xl);
+  }
+
+  .detail-meta {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .detail-modal {
+    width: 95%;
+    padding: var(--space-lg);
+  }
+
+  .detail-modal__actions {
+    flex-direction: column-reverse;
+  }
+
+  .detail-modal__cancel-btn,
+  .detail-modal__confirm-btn {
+    width: 100%;
+    text-align: center;
+  }
+}

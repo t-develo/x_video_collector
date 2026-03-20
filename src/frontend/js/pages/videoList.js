@@ -5,6 +5,7 @@ import { api } from '../api.js';
 import { createVideoCard } from '../components/videoCard.js';
 import { createSearchBar } from '../components/searchBar.js';
 import { createFilterPanel } from '../components/filterPanel.js';
+import { createSkeletonGrid } from '../components/skeleton.js';
 import { navigateTo, getCurrentQueryParams, setQueryParams } from '../router.js';
 
 const PAGE_SIZE = 20;
@@ -295,11 +296,7 @@ export async function renderVideoListPage(container) {
    */
   async function fetchAndRender(targetPage) {
     clearChildren(content);
-    const loadingEl = createElement('p', {
-      className: 'video-list-loading',
-      textContent: '読み込み中...',
-    });
-    content.appendChild(loadingEl);
+    content.appendChild(createSkeletonGrid(8));
 
     try {
       const url = buildApiUrl({
@@ -358,11 +355,20 @@ export async function renderVideoListPage(container) {
       }
     } catch (_err) {
       clearChildren(content);
-      const errEl = createElement('p', {
-        className: 'video-list-error',
-        textContent: 'データの取得に失敗しました。再読み込みしてください。',
+      const errWrapper = createElement('div', { className: 'video-list-error' });
+      const errMsg = createElement('p', {
+        className: 'video-list-error__message',
+        textContent: 'データの取得に失敗しました。',
       });
-      content.appendChild(errEl);
+      const retryBtn = createElement('button', {
+        className: 'video-list-error__retry-btn',
+        type: 'button',
+        textContent: '再試行',
+      });
+      retryBtn.addEventListener('click', () => fetchAndRender(targetPage));
+      errWrapper.appendChild(errMsg);
+      errWrapper.appendChild(retryBtn);
+      content.appendChild(errWrapper);
     }
   }
 

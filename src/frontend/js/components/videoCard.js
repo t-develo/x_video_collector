@@ -2,6 +2,7 @@
 
 import { createElement } from '../utils/dom.js';
 import { formatDate, formatDuration } from '../utils/format.js';
+import { observeLazyImage } from '../utils/lazyLoad.js';
 
 /**
  * ステータスバッジを生成する
@@ -66,14 +67,16 @@ export function createVideoCard(video, onClick) {
   if (video.thumbnailBlobPath) {
     const img = createElement('img', {
       className: 'video-card__thumb-img',
-      src: `/api/thumbnails/${video.id}`,
-      alt: video.title || 'サムネイル',
-      loading: 'lazy',
     });
-    img.addEventListener('error', () => {
-      img.classList.add('video-card__thumb-img--hidden');
-      thumb.appendChild(createThumbPlaceholder());
-    });
+    observeLazyImage(
+      img,
+      `/api/thumbnails/${video.id}`,
+      video.title || 'サムネイル',
+      () => {
+        img.classList.add('video-card__thumb-img--hidden');
+        thumb.appendChild(createThumbPlaceholder());
+      },
+    );
     thumb.appendChild(img);
   } else {
     thumb.appendChild(createThumbPlaceholder());

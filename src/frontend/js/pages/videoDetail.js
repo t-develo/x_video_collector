@@ -1,4 +1,4 @@
-// pages/videoDetail.js — 動画詳細ページ（タグ・カテゴリ設定）
+// pages/videoDetail.js — 動画詳細ページ（プレイヤー・編集・削除）
 
 import { createElement, clearChildren } from '../utils/dom.js';
 import { api, ApiError } from '../api.js';
@@ -29,6 +29,71 @@ function createSelectableTagChip(tag, selected, onToggle) {
   });
 
   return chip;
+}
+
+/**
+ * 削除確認モーダルを表示する
+ * @param {HTMLElement} page
+ * @param {string} videoId
+ */
+function showDeleteModal(page, videoId) {
+  const overlay = createElement('div', { className: 'detail-modal-overlay' });
+  const modal = createElement('div', { className: 'detail-modal' });
+
+  const modalTitle = createElement('h3', {
+    className: 'detail-modal__title',
+    textContent: '動画を削除しますか？',
+  });
+
+  const message = createElement('p', {
+    className: 'detail-modal__message',
+    textContent: 'この操作は取り消せません。動画ファイルとすべての情報が削除されます。',
+  });
+
+  const actions = createElement('div', { className: 'detail-modal__actions' });
+
+  const cancelBtn = createElement('button', {
+    className: 'detail-modal__cancel-btn',
+    type: 'button',
+    textContent: 'キャンセル',
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    page.removeChild(overlay);
+  });
+
+  const confirmBtn = createElement('button', {
+    className: 'detail-modal__confirm-btn',
+    type: 'button',
+    textContent: '削除する',
+  });
+
+  confirmBtn.addEventListener('click', async () => {
+    confirmBtn.disabled = true;
+    cancelBtn.disabled = true;
+
+    try {
+      await api.delete(`/videos/${videoId}`);
+      toast.success('動画を削除しました');
+      navigateTo('/videos');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(`削除に失敗しました (${err.status})`);
+      } else {
+        toast.error('ネットワークエラーが発生しました');
+      }
+      confirmBtn.disabled = false;
+      cancelBtn.disabled = false;
+    }
+  });
+
+  actions.appendChild(cancelBtn);
+  actions.appendChild(confirmBtn);
+  modal.appendChild(modalTitle);
+  modal.appendChild(message);
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+  page.appendChild(overlay);
 }
 
 /**
@@ -89,21 +154,63 @@ export async function renderVideoDetailPage(container, videoId) {
  * @param {object[]} allCategories
  */
 function renderDetailContent(page, video, allTags, allCategories) {
+  // 動画プレイヤーセクション（blobPath がある場合のみ）
+  if (video.blobPath) {
+    const playerSection = createElement('section', { className: 'detail-player-section' });
+
+    const videoEl = createElement('video', {
+      className: 'detail-video-player',
+      controls: 'controls',
+      preload: 'metadata',
+    });
+
+    const playerStatus = createElement('p', {
+      className: 'detail-player-status',
+      textContent: 'ストリームURLを取得中...',
+    });
+
+    playerSection.appendChild(videoEl);
+    playerSection.appendChild(playerStatus);
+    page.appendChild(playerSection);
+
+    // SAS URL を非同期で取得して video src を設定
+    (async () => {
+      try {
+        const data = await api.get(`/videos/${video.id}/stream`);
+        videoEl.src = data.streamUrl;
+        playerSection.removeChild(playerStatus);
+      } catch {
+        playerStatus.textContent = '動画の読み込みに失敗しました';
+      }
+    })();
+  }
+
   // 動画情報セクション
   const infoSection = createElement('section', { className: 'detail-info' });
 
-  const title = createElement('h1', {
-    className: 'detail-title',
-    textContent: video.title || '（タイトルなし）',
+  // インライン編集可能タイトル
+  const titleInput = createElement('input', {
+    className: 'detail-title-input',
+    type: 'text',
+    placeholder: '（タイトルなし）',
   });
-  infoSection.appendChild(title);
+  titleInput.value = video.title || '';
+  infoSection.appendChild(titleInput);
 
   const meta = createElement('div', { className: 'detail-meta' });
+
   const userName = createElement('span', {
     className: 'detail-meta__item',
     textContent: `@${video.userName}`,
   });
   meta.appendChild(userName);
+
+  // ステータスバッジ
+  const statusBadge = createElement('span', {
+    className: `detail-status-badge detail-status-badge--${video.status.toLowerCase()}`,
+    textContent: video.status,
+  });
+  meta.appendChild(statusBadge);
 
   if (video.durationSeconds != null) {
     const dur = createElement('span', {
@@ -112,6 +219,7 @@ function renderDetailContent(page, video, allTags, allCategories) {
     });
     meta.appendChild(dur);
   }
+
   if (video.fileSizeBytes != null) {
     const size = createElement('span', {
       className: 'detail-meta__item',
@@ -119,12 +227,24 @@ function renderDetailContent(page, video, allTags, allCategories) {
     });
     meta.appendChild(size);
   }
+
   const date = createElement('time', {
     className: 'detail-meta__item',
     datetime: video.createdAt,
     textContent: formatDate(video.createdAt),
   });
   meta.appendChild(date);
+
+  // 元ツイートへのリンク
+  const tweetLink = createElement('a', {
+    className: 'detail-tweet-link',
+    href: video.tweetUrl,
+    target: '_blank',
+    rel: 'noopener noreferrer',
+    textContent: '元ツイートを開く ↗',
+  });
+  meta.appendChild(tweetLink);
+
   infoSection.appendChild(meta);
   page.appendChild(infoSection);
 
@@ -198,10 +318,11 @@ function renderDetailContent(page, video, allTags, allCategories) {
     saveBtn.disabled = true;
     const categoryId = categorySelect.value || null;
     const tagIds = Array.from(selectedTagIds);
+    const title = titleInput.value.trim() || null;
 
     try {
       await api.put(`/videos/${video.id}`, {
-        title: video.title,
+        title,
         categoryId,
         tagIds,
       });
@@ -218,4 +339,20 @@ function renderDetailContent(page, video, allTags, allCategories) {
   });
 
   page.appendChild(saveBtn);
+
+  // 削除セクション
+  const deleteSection = createElement('section', { className: 'detail-delete-section' });
+
+  const deleteBtn = createElement('button', {
+    className: 'detail-delete-btn',
+    type: 'button',
+    textContent: 'この動画を削除',
+  });
+
+  deleteBtn.addEventListener('click', () => {
+    showDeleteModal(page, video.id);
+  });
+
+  deleteSection.appendChild(deleteBtn);
+  page.appendChild(deleteSection);
 }

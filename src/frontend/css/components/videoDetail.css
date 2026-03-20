@@ -142,7 +142,221 @@
   margin: 0 0 var(--space-sm);
 }
 
-/* 保存ボタン */
+/* ========== 動画プレイヤー ========== */
+
+.detail-player-section {
+  margin-bottom: var(--space-xl);
+  background: #000;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.detail-video-player {
+  width: 100%;
+  max-height: 540px;
+  display: block;
+  background: #000;
+}
+
+.detail-player-status {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--space-md);
+  font-family: var(--font-mono);
+}
+
+/* ========== インライン編集タイトル ========== */
+
+.detail-title-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  outline: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  color: var(--color-text-primary);
+  padding: 0 0 var(--space-xs);
+  margin: 0 0 var(--space-sm);
+  transition: border-color var(--transition-fast);
+}
+
+.detail-title-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.detail-title-input:hover {
+  border-bottom-color: var(--color-border);
+}
+
+.detail-title-input:focus {
+  border-bottom-color: var(--color-border-focus);
+}
+
+/* ========== ステータスバッジ ========== */
+
+.detail-status-badge {
+  display: inline-block;
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+}
+
+.detail-status-badge--pending {
+  color: var(--color-warning);
+  background: rgba(255, 165, 2, 0.1);
+}
+
+.detail-status-badge--downloading {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.detail-status-badge--ready {
+  color: var(--color-success);
+  background: rgba(46, 213, 115, 0.1);
+}
+
+.detail-status-badge--failed {
+  color: var(--color-danger);
+  background: rgba(255, 71, 87, 0.1);
+}
+
+/* ========== 元ツイートリンク ========== */
+
+.detail-tweet-link {
+  font-size: var(--text-sm);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.detail-tweet-link:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+/* ========== 削除セクション ========== */
+
+.detail-delete-section {
+  margin-top: var(--space-2xl);
+  padding-top: var(--space-xl);
+  border-top: 1px solid var(--color-border);
+}
+
+.detail-delete-btn {
+  padding: var(--space-sm) var(--space-lg);
+  background: none;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.detail-delete-btn:hover {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+/* ========== 削除確認モーダル ========== */
+
+.detail-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+}
+
+.detail-modal {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  max-width: 400px;
+  width: 90%;
+  box-shadow: var(--shadow-lg);
+}
+
+.detail-modal__title {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-md);
+}
+
+.detail-modal__message {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-xl);
+  line-height: 1.6;
+}
+
+.detail-modal__actions {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: flex-end;
+}
+
+.detail-modal__cancel-btn {
+  padding: var(--space-sm) var(--space-lg);
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.detail-modal__cancel-btn:hover:not(:disabled) {
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
+}
+
+.detail-modal__cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.detail-modal__confirm-btn {
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--color-danger);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.detail-modal__confirm-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.detail-modal__confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ========== 保存ボタン ========== */
+
 .detail-save-btn {
   padding: var(--space-sm) var(--space-xl);
   background-color: var(--color-accent);

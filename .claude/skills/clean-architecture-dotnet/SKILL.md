@@ -74,19 +74,32 @@ Functions/
 ```csharp
 namespace XVideoCollector.Domain.Entities;
 
-public class Video
+public sealed class Video
 {
     public Guid Id { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset UpdatedAt { get; private set; }
     // ... プロパティ（private set）
 
-    // ファクトリメソッドまたはコンストラクタで生成
-    public static Video Create(/* params */)
+    // EF Core 用
+    #pragma warning disable CS8618
+    private Video() { }
+    #pragma warning restore CS8618
+
+    // ファクトリメソッドで生成（TimeProvider を使い時刻注入可能にする）
+    public static Video Create(/* params */, TimeProvider? timeProvider = null)
     {
-        return new Video { /* ... */ };
+        var now = (timeProvider ?? TimeProvider.System).GetUtcNow();
+        return new Video { /* ..., CreatedAt = now, UpdatedAt = now */ };
     }
 
-    // ドメインロジックはエンティティ内メソッドとして定義
-    public void UpdateTitle(string title) { /* ... */ }
+    // 状態変更メソッドでは必ず UpdatedAt を更新する
+    public void UpdateTitle(string title)
+    {
+        // バリデーション...
+        // Title = title;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
 }
 ```
 
@@ -114,13 +127,20 @@ public record TweetUrl
 
 ### リポジトリインターフェース
 
+- 検索用パラメータクラス（`VideoSearchQuery` 等）はリポジトリインターフェースとは別ファイルに定義する
+- リスト取得はサーバーサイドページング対応メソッドを提供し、全件取得の `GetAllAsync` に依存しない
+- Repository 実装は `SaveChangesAsync` を自前で呼ばない（`IUnitOfWork` に委譲）
+
 ```csharp
 namespace XVideoCollector.Domain.Repositories;
 
 public interface IVideoRepository
 {
     Task<Video?> GetByIdAsync(Guid id, CancellationToken ct = default);
-    Task<IReadOnlyList<Video>> GetAllAsync(CancellationToken ct = default);
+    Task<(IReadOnlyList<Video> Items, int TotalCount)> GetPagedAsync(
+        int skip, int take, CancellationToken ct = default);
+    Task<(IReadOnlyList<Video> Items, int TotalCount)> SearchAsync(
+        VideoSearchQuery query, int skip, int take, CancellationToken ct = default);
     Task AddAsync(Video video, CancellationToken ct = default);
     Task UpdateAsync(Video video, CancellationToken ct = default);
     Task DeleteAsync(Guid id, CancellationToken ct = default);
@@ -129,12 +149,22 @@ public interface IVideoRepository
 
 ### ユースケース
 
+UseCase は必ずインターフェースを定義し、DI にはインターフェース経由で登録する（依存性逆転の原則）。
+
 ```csharp
+// インターフェース定義
 namespace XVideoCollector.Application.UseCases;
 
-public class RegisterVideoUseCase(
-    IVideoRepository videoRepository,
-    IVideoDownloadService downloadService)
+public interface IRegisterVideoUseCase
+{
+    Task<VideoDto> ExecuteAsync(
+        RegisterVideoRequest request,
+        CancellationToken ct = default);
+}
+
+// 実装（sealed）
+public sealed class RegisterVideoUseCase(
+    IVideoRepository videoRepository) : IRegisterVideoUseCase
 {
     public async Task<VideoDto> ExecuteAsync(
         RegisterVideoRequest request,
@@ -146,6 +176,33 @@ public class RegisterVideoUseCase(
         // 4. DTO 変換して返却
     }
 }
+```
+
+#### Unit of Work パターン
+
+複数リポジトリにまたがる操作は `IUnitOfWork` で1トランザクションにまとめる。
+
+```csharp
+public interface IUnitOfWork
+{
+    Task<int> SaveChangesAsync(CancellationToken ct = default);
+}
+
+// UseCase 内での使用例
+public sealed class UpdateVideoUseCase(
+    IVideoRepository videoRepository,
+    IVideoTagRepository videoTagRepository,
+    IUnitOfWork unitOfWork) : IUpdateVideoUseCase
+{
+    public async Task<VideoDto> ExecuteAsync(UpdateVideoRequest request, CancellationToken ct = default)
+    {
+        // ... 複数のリポジトリ操作 ...
+        // 各 Repository は SaveChanges を呼ばず、最後に一括コミット
+        await unitOfWork.SaveChangesAsync(ct);
+        return dto;
+    }
+}
+```
 ```
 
 ### DTO
@@ -166,7 +223,26 @@ public record RegisterVideoRequest(string TweetUrl);
 
 ### DI 登録
 
+UseCase はインターフェース経由で登録する。
+
 ```csharp
+// Application 層
+namespace XVideoCollector.Application;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddApplication(this IServiceCollection services)
+    {
+        services.AddScoped<IRegisterVideoUseCase, RegisterVideoUseCase>();
+        services.AddScoped<IGetVideoUseCase, GetVideoUseCase>();
+        // ...
+        return services;
+    }
+}
+```
+
+```csharp
+// Infrastructure 層
 namespace XVideoCollector.Infrastructure;
 
 public static class DependencyInjection
@@ -177,9 +253,12 @@ public static class DependencyInjection
     {
         // DbContext
         services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+            options.UseSqlServer(configuration.GetConnectionString("SqlDb")));
 
-        // Repositories
+        // UnitOfWork（AppDbContext が IUnitOfWork を実装）
+        services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
+
+        // Repositories（internal sealed — SaveChanges を自前で呼ばない）
         services.AddScoped<IVideoRepository, VideoRepository>();
 
         // Services
@@ -195,53 +274,71 @@ public static class DependencyInjection
 
 ### Azure Functions エンドポイント
 
+Functions 層は UseCase のインターフェースに依存する（具象クラスに直接依存しない）。
+`ReadBodyAsync` や `JsonSerializerOptions` 等の共通処理は `FunctionHelper` に集約し、重複を排除する。
+
 ```csharp
 namespace XVideoCollector.Functions;
 
-public class VideoFunctions(RegisterVideoUseCase registerVideo)
+public sealed class VideoFunctions(IRegisterVideoUseCase registerVideo)
 {
     [Function("RegisterVideo")]
-    public async Task<HttpResponseData> Register(
+    public async Task<IActionResult> Register(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "videos")]
-        HttpRequestData req)
+        HttpRequest req,
+        CancellationToken cancellationToken)
     {
-        var request = await req.ReadFromJsonAsync<RegisterVideoRequest>();
-        var result = await registerVideo.ExecuteAsync(request!);
+        var request = await FunctionHelper.ReadBodyAsync<RegisterVideoRequest>(req, cancellationToken);
+        if (request is null)
+            return new BadRequestObjectResult(new { error = "Invalid request body." });
 
-        var response = req.CreateResponse(HttpStatusCode.Accepted);
-        await response.WriteAsJsonAsync(result);
-        return response;
+        var result = await registerVideo.ExecuteAsync(request, cancellationToken);
+        return new CreatedAtRouteResult(null, new { id = result.Id }, result);
     }
 }
 ```
 
+**禁止事項:** Azure Functions Consumption Plan では `Task.Run` による fire-and-forget を使用しない。
+非同期の長時間処理（動画ダウンロード等）は Queue Trigger に委譲する。
+```
+
 ## テストパターン（xUnit + Moq）
+
+### ルール
+
+- テストメソッド名: `MethodName_Condition_ExpectedResult` パターン
+- AAA（Arrange-Act-Assert）パターンを厳守し、各セクションを空行で区切る
+- Mock はインスタンスフィールドまたはコンストラクタで初期化する。**`static readonly Mock` でテスト間の状態を共有しない**
+- Moq の `Setup` は暗黙のデフォルト値に依存せず、テストの意図を明示する
+- テスト名と内容を一致させる（名前が `Throws` ならアサーションも `ThrowsAsync`）
+- テンプレート残骸（空の `UnitTest1.cs` 等）は残さない
+- 境界値テスト（0件、1件、ちょうど pageSize 件等）を含める
 
 ```csharp
 namespace XVideoCollector.Application.Tests.UseCases;
 
-public class RegisterVideoUseCaseTests
+public sealed class RegisterVideoUseCaseTests
 {
     private readonly Mock<IVideoRepository> _repoMock = new();
-    private readonly Mock<IVideoDownloadService> _dlMock = new();
     private readonly RegisterVideoUseCase _sut;
 
     public RegisterVideoUseCaseTests()
     {
-        _sut = new RegisterVideoUseCase(_repoMock.Object, _dlMock.Object);
+        _sut = new RegisterVideoUseCase(_repoMock.Object);
     }
 
     [Fact]
     public async Task ExecuteAsync_ValidUrl_ReturnsVideoDto()
     {
         // Arrange
-        var request = new RegisterVideoRequest("https://x.com/user/status/123");
+        var request = new RegisterVideoRequest("https://x.com/user/status/123", "Test Video");
 
         // Act
         var result = await _sut.ExecuteAsync(request);
 
         // Assert
         Assert.NotNull(result);
+        Assert.Equal("Test Video", result.Title);
         _repoMock.Verify(r => r.AddAsync(It.IsAny<Video>(), default), Times.Once);
     }
 }

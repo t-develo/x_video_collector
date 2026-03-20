@@ -25,32 +25,30 @@ public class YtDlpOptions
 ## Application 層 — インターフェース
 
 ```csharp
-namespace XVideoCollector.Application.Interfaces;
+namespace XVideoCollector.Application.Services;
 
-public record DownloadResult(
+public sealed record VideoDownloadResult(
     string FilePath,
-    string FileName,
-    long FileSizeBytes,
     int DurationSeconds,
-    string ThumbnailPath);
-
-public record DownloadProgress(
-    double Percentage,
-    string Status);
+    long FileSizeBytes);
 
 public interface IVideoDownloadService
 {
-    Task<DownloadResult> DownloadAsync(
+    Task<VideoDownloadResult> DownloadAsync(
         string tweetUrl,
-        string outputDirectory,
-        IProgress<DownloadProgress>? progress = null,
-        CancellationToken ct = default);
-
-    Task<string> GetVideoInfoJsonAsync(
-        string tweetUrl,
-        CancellationToken ct = default);
+        CancellationToken cancellationToken = default);
 }
 ```
+
+### DurationSeconds の取得について
+
+`DurationSeconds` は `ffprobe` で取得する。yt-dlp ダウンロード後に以下のコマンドで取得可能:
+
+```
+ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "video.mp4"
+```
+
+**注意:** `DurationSeconds: 0` のまま放置するとフロントエンドで `"00:00"` と表示されユーザーを混乱させるため、必ず実値を取得すること。
 
 ## Infrastructure 層 — 実装
 
@@ -66,7 +64,7 @@ using Microsoft.Extensions.Options;
 using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Infrastructure.Options;
 
-public class YtDlpDownloadService(
+public sealed class YtDlpDownloadService(
     IOptions<YtDlpOptions> options,
     ILogger<YtDlpDownloadService> logger) : IVideoDownloadService
 {
@@ -298,6 +296,20 @@ public class YtDlpDownloadServiceTests
 ```
 
 ## Azure Functions での利用
+
+### 非同期ダウンロード処理のアーキテクチャ（厳守）
+
+動画ダウンロードは長時間処理のため、HTTP トリガー内で `Task.Run` による fire-and-forget を**禁止**する。
+Consumption Plan ではリクエスト終了後にプロセスが回収される可能性があり、バックグラウンドタスクの完了が保証されない。
+
+**推奨アーキテクチャ:**
+
+1. HTTP トリガー（RegisterVideo）: 動画を `Pending` 状態で DB 登録 → Queue にメッセージを発行
+2. Queue トリガー（DownloadVideo）: メッセージを受信 → ダウンロード実行 → 状態更新
+
+```
+POST /api/videos → RegisterVideoFunction → Queue message → DownloadVideoFunction
+```
 
 ### Windows Consumption Plan での注意点
 

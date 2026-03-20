@@ -108,6 +108,13 @@ feature/sprint{N}/{実装内容}
 - `record` を DTO / 値オブジェクトに使用
 - 非同期メソッドには `Async` サフィックス
 - 名前空間: `XVideoCollector.{Layer}.{Feature}`
+- エンティティ・サービス等のクラスは原則 `sealed`（継承を意図しない限り）
+- UseCase はインターフェース（`IXxxUseCase`）を定義し、DI コンテナにはインターフェース経由で登録する（依存性逆転の原則）
+- 全エンティティに `CreatedAt` / `UpdatedAt` 監査プロパティを持たせ、状態変更メソッド内で必ず `UpdatedAt` を更新する
+- `DateTimeOffset.UtcNow` を直接呼ばず、`TimeProvider`（.NET 8+）を DI 経由で注入してテスト時に時刻を制御可能にする
+- 複数リポジトリにまたがる操作は `IUnitOfWork` パターンで1トランザクションにまとめる（Repository 内で個別に `SaveChangesAsync` しない）
+- `EF.Functions.Like` 使用時は LIKE ワイルドカード文字（`%`, `_`）をエスケープする
+- Azure Functions Consumption Plan では fire-and-forget（`Task.Run` 放置）を禁止する。非同期処理は Queue Trigger 等のメッセージング経由で実行する
 
 ### Vanilla JS (ES2022+)
 
@@ -115,13 +122,39 @@ feature/sprint{N}/{実装内容}
 - `const` 優先、`let` 必要時のみ、`var` 禁止
 - クラスではなく関数 + モジュールパターン
 - DOM 操作は `document.createElement` + `textContent`（innerHTML 禁止 — XSS 防止）
-- すべての非同期処理は `async`/`await`
+  - 空にする場合も `innerHTML = ''` ではなく `clearChildren(container)` を使用する（`utils/dom.js` 提供）
+- すべての非同期処理は `async`/`await`（`.then()` チェーン禁止）
+- インラインスタイル（`el.style.cssText`, `el.style.xxx`）を使わず、CSS ファイルにクラスとして定義する
 
 ### CSS
 
 - CSS カスタムプロパティ（変数）でテーマ管理
 - Industrial Minimal ダークテーマ
 - モバイルファーストではなくデスクトップファーストで記述
+
+### データアクセス
+
+- リスト取得系の API はサーバーサイドでページング（`OFFSET`/`FETCH`）を行い、全件取得を避ける
+- 関連データ（タグ等）は N+1 クエリを避け、`Include` / `JOIN` で一括取得する
+- フロントエンドからの全件取得（`pageSize=1000` 等のハードコード）を避け、サーバーサイドページングを活用する
+
+## テスト規約
+
+### C# (xUnit + Moq)
+
+- テストメソッド名: `MethodName_Condition_ExpectedResult` パターン
+- Arrange-Act-Assert（AAA）パターンを厳守し、各セクションを空行で区切る
+- Mock は各テストメソッド内またはコンストラクタでインスタンス化する。`static readonly Mock` によるテスト間の状態共有を禁止する
+- Moq の `Setup` は暗黙のデフォルト値に依存せず、テストの意図を明示する
+- テスト名と内容を一致させる（名前と異なるアサーションを書かない）
+- テンプレート残骸（空の `UnitTest1.cs` 等）は削除する
+- 境界値テスト（0件、1件、ちょうど pageSize 件等）を必ず含める
+
+### Vanilla JS (Vitest + jsdom)
+
+- `describe`/`it` でグループ化し、テスト名は日本語可
+- `vi.fn()` / `vi.spyOn()` でモック化
+- DOM テストは `document.createElement('div')` をコンテナとして使用
 
 ## コミットメッセージ規約
 

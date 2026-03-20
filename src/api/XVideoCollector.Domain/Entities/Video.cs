@@ -37,43 +37,51 @@ public sealed class Video
         UpdatedAt = createdAt;
     }
 
-    public static Video Create(TweetUrl tweetUrl, VideoTitle title)
+    public static Video Create(TweetUrl tweetUrl, VideoTitle title, TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(tweetUrl);
         ArgumentNullException.ThrowIfNull(title);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         return new Video(
             Guid.NewGuid(),
             tweetUrl,
             title,
             VideoStatus.Pending,
-            DateTimeOffset.UtcNow);
+            timeProvider.GetUtcNow());
     }
 
-    public void StartDownloading()
+    public void StartDownloading(TimeProvider timeProvider)
     {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         if (Status != VideoStatus.Pending && Status != VideoStatus.Failed)
             throw new InvalidOperationException($"Cannot start downloading from status '{Status}'.");
 
         Status = VideoStatus.Downloading;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = timeProvider.GetUtcNow();
     }
 
-    public void StartProcessing()
+    public void StartProcessing(TimeProvider timeProvider)
     {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         if (Status != VideoStatus.Downloading)
             throw new InvalidOperationException($"Cannot start processing from status '{Status}'.");
 
         Status = VideoStatus.Processing;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = timeProvider.GetUtcNow();
     }
 
     public void MarkReady(
         BlobPath blobPath,
         BlobPath? thumbnailBlobPath,
         int durationSeconds,
-        long fileSizeBytes)
+        long fileSizeBytes,
+        TimeProvider timeProvider)
     {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         if (Status != VideoStatus.Processing)
             throw new InvalidOperationException($"Cannot mark ready from status '{Status}'.");
 
@@ -88,29 +96,34 @@ public sealed class Video
         DurationSeconds = durationSeconds;
         FileSizeBytes = fileSizeBytes;
         Status = VideoStatus.Ready;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = timeProvider.GetUtcNow();
     }
 
-    public void MarkFailed()
+    public void MarkFailed(TimeProvider timeProvider)
     {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         if (Status == VideoStatus.Ready)
             throw new InvalidOperationException("Cannot mark a ready video as failed.");
 
         Status = VideoStatus.Failed;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = timeProvider.GetUtcNow();
     }
 
-    public void UpdateTitle(VideoTitle title)
+    public void UpdateTitle(VideoTitle title, TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(title);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         Title = title;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = timeProvider.GetUtcNow();
     }
 
-    public void SetCategory(Guid? categoryId)
+    public void SetCategory(Guid? categoryId, TimeProvider timeProvider)
     {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         CategoryId = categoryId;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = timeProvider.GetUtcNow();
     }
 }

@@ -7,7 +7,8 @@ using XVideoCollector.Domain.ValueObjects;
 namespace XVideoCollector.Application.UseCases;
 
 public sealed class RegisterVideoUseCase(
-    IVideoRepository videoRepository) : IRegisterVideoUseCase
+    IVideoRepository videoRepository,
+    TimeProvider timeProvider) : IRegisterVideoUseCase
 {
     public async Task<VideoDto> ExecuteAsync(
         RegisterVideoRequest request,
@@ -17,7 +18,7 @@ public sealed class RegisterVideoUseCase(
 
         var tweetUrl = TweetUrl.Create(request.TweetUrl);
         var title = VideoTitle.Create(request.Title);
-        var video = Video.Create(tweetUrl, title);
+        var video = Video.Create(tweetUrl, title, timeProvider);
 
         await videoRepository.AddAsync(video, cancellationToken);
 

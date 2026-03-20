@@ -22,7 +22,8 @@ public sealed class GetVideoUseCaseTests
     {
         var video = Video.Create(
             TweetUrl.Create("https://x.com/user/status/111"),
-            VideoTitle.Create("My Video"));
+            VideoTitle.Create("My Video"),
+            TimeProvider.System);
         _videoRepoMock
             .Setup(r => r.GetByIdAsync(video.Id, default))
             .ReturnsAsync(video);

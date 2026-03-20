@@ -22,8 +22,8 @@ public sealed class ListVideosUseCaseTests
     {
         var videos = new List<Video>
         {
-            Video.Create(TweetUrl.Create("https://x.com/u/status/1"), VideoTitle.Create("V1")),
-            Video.Create(TweetUrl.Create("https://x.com/u/status/2"), VideoTitle.Create("V2")),
+            Video.Create(TweetUrl.Create("https://x.com/u/status/1"), VideoTitle.Create("V1"), TimeProvider.System),
+            Video.Create(TweetUrl.Create("https://x.com/u/status/2"), VideoTitle.Create("V2"), TimeProvider.System),
         };
         _videoRepoMock
             .Setup(r => r.GetPagedAsync(0, 2, default))
@@ -60,8 +60,8 @@ public sealed class ListVideosUseCaseTests
     [Fact]
     public async Task ExecuteAsync_WithTags_MapsTags()
     {
-        var video = Video.Create(TweetUrl.Create("https://x.com/u/status/1"), VideoTitle.Create("V1"));
-        var tag = Tag.Create("test", Domain.Enums.TagColor.Blue);
+        var video = Video.Create(TweetUrl.Create("https://x.com/u/status/1"), VideoTitle.Create("V1"), TimeProvider.System);
+        var tag = Tag.Create("test", Domain.Enums.TagColor.Blue, TimeProvider.System);
         var tagMap = new Dictionary<Guid, IReadOnlyList<Tag>>
         {
             { video.Id, new List<Tag> { tag } }

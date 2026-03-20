@@ -13,7 +13,7 @@ public sealed class RegisterVideoUseCaseTests
 
     public RegisterVideoUseCaseTests()
     {
-        _sut = new RegisterVideoUseCase(_videoRepoMock.Object);
+        _sut = new RegisterVideoUseCase(_videoRepoMock.Object, TimeProvider.System);
     }
 
     [Fact]

@@ -8,7 +8,8 @@ namespace XVideoCollector.Application.UseCases;
 public sealed class UpdateVideoUseCase(
     IVideoRepository videoRepository,
     ITagRepository tagRepository,
-    IVideoTagRepository videoTagRepository) : IUpdateVideoUseCase
+    IVideoTagRepository videoTagRepository,
+    TimeProvider timeProvider) : IUpdateVideoUseCase
 {
     public async Task<VideoDto> ExecuteAsync(
         UpdateVideoRequest request,
@@ -20,8 +21,8 @@ public sealed class UpdateVideoUseCase(
             ?? throw new InvalidOperationException($"Video '{request.Id}' not found.");
 
         var title = VideoTitle.Create(request.Title);
-        video.UpdateTitle(title);
-        video.SetCategory(request.CategoryId);
+        video.UpdateTitle(title, timeProvider);
+        video.SetCategory(request.CategoryId, timeProvider);
 
         // タグの同期（削除＋追加）を1トランザクションで実行
         await videoTagRepository.SyncByVideoIdAsync(video.Id, request.TagIds, cancellationToken);

@@ -27,7 +27,8 @@ public sealed class DeleteVideoUseCaseTests
     {
         var video = Video.Create(
             TweetUrl.Create("https://x.com/u/status/42"),
-            VideoTitle.Create("To Delete"));
+            VideoTitle.Create("To Delete"),
+            TimeProvider.System);
         _videoRepoMock
             .Setup(r => r.GetByIdAsync(video.Id, default))
             .ReturnsAsync(video);

@@ -23,8 +23,8 @@ public sealed class SearchVideosUseCaseTests
     {
         var videos = new List<Video>
         {
-            Video.Create(TweetUrl.Create("https://x.com/u/status/10"), VideoTitle.Create("A")),
-            Video.Create(TweetUrl.Create("https://x.com/u/status/11"), VideoTitle.Create("B")),
+            Video.Create(TweetUrl.Create("https://x.com/u/status/10"), VideoTitle.Create("A"), TimeProvider.System),
+            Video.Create(TweetUrl.Create("https://x.com/u/status/11"), VideoTitle.Create("B"), TimeProvider.System),
         };
         _videoRepoMock
             .Setup(r => r.SearchPagedAsync(It.IsAny<VideoSearchQuery>(), 0, 10, default))
@@ -56,7 +56,8 @@ public sealed class SearchVideosUseCaseTests
         var videos = Enumerable.Range(0, totalCount)
             .Select(i => Video.Create(
                 TweetUrl.Create($"https://x.com/u/status/{i}"),
-                VideoTitle.Create($"V{i}")))
+                VideoTitle.Create($"V{i}"),
+                TimeProvider.System))
             .ToList();
 
         _videoRepoMock

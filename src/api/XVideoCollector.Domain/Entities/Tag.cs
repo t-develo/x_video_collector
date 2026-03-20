@@ -22,19 +22,21 @@ public sealed class Tag
         UpdatedAt = now;
     }
 
-    public static Tag Create(string name, TagColor color)
+    public static Tag Create(string name, TagColor color, TimeProvider timeProvider)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
-        return new Tag(Guid.NewGuid(), name.Trim(), color, DateTimeOffset.UtcNow);
+        return new Tag(Guid.NewGuid(), name.Trim(), color, timeProvider.GetUtcNow());
     }
 
-    public void Update(string name, TagColor color)
+    public void Update(string name, TagColor color, TimeProvider timeProvider)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         Name = name.Trim();
         Color = color;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = timeProvider.GetUtcNow();
     }
 }

@@ -20,19 +20,21 @@ public sealed class Category
         UpdatedAt = now;
     }
 
-    public static Category Create(string name, int sortOrder = 0)
+    public static Category Create(string name, int sortOrder, TimeProvider timeProvider)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
-        return new Category(Guid.NewGuid(), name.Trim(), sortOrder, DateTimeOffset.UtcNow);
+        return new Category(Guid.NewGuid(), name.Trim(), sortOrder, timeProvider.GetUtcNow());
     }
 
-    public void Update(string name, int sortOrder)
+    public void Update(string name, int sortOrder, TimeProvider timeProvider)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         Name = name.Trim();
         SortOrder = sortOrder;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = timeProvider.GetUtcNow();
     }
 }

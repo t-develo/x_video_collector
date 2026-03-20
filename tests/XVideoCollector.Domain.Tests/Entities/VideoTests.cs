@@ -15,7 +15,7 @@ public class VideoTests
     [Fact]
     public void Create_ValidArgs_ReturnsVideoWithPendingStatus()
     {
-        var video = Video.Create(MakeTweetUrl(), MakeTitle());
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
 
         Assert.NotEqual(Guid.Empty, video.Id);
         Assert.Equal(VideoStatus.Pending, video.Status);
@@ -26,21 +26,21 @@ public class VideoTests
     [Fact]
     public void Create_NullTweetUrl_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => Video.Create(null!, MakeTitle()));
+        Assert.Throws<ArgumentNullException>(() => Video.Create(null!, MakeTitle(), TimeProvider.System));
     }
 
     [Fact]
     public void Create_NullTitle_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => Video.Create(MakeTweetUrl(), null!));
+        Assert.Throws<ArgumentNullException>(() => Video.Create(MakeTweetUrl(), null!, TimeProvider.System));
     }
 
     [Fact]
     public void StartDownloading_FromPending_SetsDownloadingStatus()
     {
-        var video = Video.Create(MakeTweetUrl(), MakeTitle());
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
 
-        video.StartDownloading();
+        video.StartDownloading(TimeProvider.System);
 
         Assert.Equal(VideoStatus.Downloading, video.Status);
     }
@@ -48,11 +48,11 @@ public class VideoTests
     [Fact]
     public void StartDownloading_FromFailed_Succeeds()
     {
-        var video = Video.Create(MakeTweetUrl(), MakeTitle());
-        video.StartDownloading();
-        video.MarkFailed();
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        video.StartDownloading(TimeProvider.System);
+        video.MarkFailed(TimeProvider.System);
 
-        video.StartDownloading();
+        video.StartDownloading(TimeProvider.System);
 
         Assert.Equal(VideoStatus.Downloading, video.Status);
     }
@@ -60,19 +60,19 @@ public class VideoTests
     [Fact]
     public void StartDownloading_FromDownloading_ThrowsInvalidOperationException()
     {
-        var video = Video.Create(MakeTweetUrl(), MakeTitle());
-        video.StartDownloading();
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        video.StartDownloading(TimeProvider.System);
 
-        Assert.Throws<InvalidOperationException>(() => video.StartDownloading());
+        Assert.Throws<InvalidOperationException>(() => video.StartDownloading(TimeProvider.System));
     }
 
     [Fact]
     public void StartProcessing_FromDownloading_SetsProcessingStatus()
     {
-        var video = Video.Create(MakeTweetUrl(), MakeTitle());
-        video.StartDownloading();
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        video.StartDownloading(TimeProvider.System);
 
-        video.StartProcessing();
+        video.StartProcessing(TimeProvider.System);
 
         Assert.Equal(VideoStatus.Processing, video.Status);
     }
@@ -80,20 +80,20 @@ public class VideoTests
     [Fact]
     public void StartProcessing_FromPending_ThrowsInvalidOperationException()
     {
-        var video = Video.Create(MakeTweetUrl(), MakeTitle());
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
 
-        Assert.Throws<InvalidOperationException>(() => video.StartProcessing());
+        Assert.Throws<InvalidOperationException>(() => video.StartProcessing(TimeProvider.System));
     }
 
     [Fact]
     public void MarkReady_FromProcessing_SetsReadyStatus()
     {
-        var video = Video.Create(MakeTweetUrl(), MakeTitle());
-        video.StartDownloading();
-        video.StartProcessing();
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        video.StartDownloading(TimeProvider.System);
+        video.StartProcessing(TimeProvider.System);
 
         var blobPath = BlobPath.Create("videos/test.mp4");
-        video.MarkReady(blobPath, null, 120, 1024 * 1024);
+        video.MarkReady(blobPath, null, 120, 1024 * 1024, TimeProvider.System);
 
         Assert.Equal(VideoStatus.Ready, video.Status);
         Assert.Equal(blobPath, video.BlobPath);
@@ -104,19 +104,19 @@ public class VideoTests
     [Fact]
     public void MarkReady_FromPending_ThrowsInvalidOperationException()
     {
-        var video = Video.Create(MakeTweetUrl(), MakeTitle());
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
 
         Assert.Throws<InvalidOperationException>(() =>
-            video.MarkReady(BlobPath.Create("videos/test.mp4"), null, 120, 1024));
+            video.MarkReady(BlobPath.Create("videos/test.mp4"), null, 120, 1024, TimeProvider.System));
     }
 
     [Fact]
     public void MarkFailed_FromDownloading_SetsFailedStatus()
     {
-        var video = Video.Create(MakeTweetUrl(), MakeTitle());
-        video.StartDownloading();
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        video.StartDownloading(TimeProvider.System);
 
-        video.MarkFailed();
+        video.MarkFailed(TimeProvider.System);
 
         Assert.Equal(VideoStatus.Failed, video.Status);
     }
@@ -124,21 +124,21 @@ public class VideoTests
     [Fact]
     public void MarkFailed_FromReady_ThrowsInvalidOperationException()
     {
-        var video = Video.Create(MakeTweetUrl(), MakeTitle());
-        video.StartDownloading();
-        video.StartProcessing();
-        video.MarkReady(BlobPath.Create("videos/test.mp4"), null, 120, 1024);
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        video.StartDownloading(TimeProvider.System);
+        video.StartProcessing(TimeProvider.System);
+        video.MarkReady(BlobPath.Create("videos/test.mp4"), null, 120, 1024, TimeProvider.System);
 
-        Assert.Throws<InvalidOperationException>(() => video.MarkFailed());
+        Assert.Throws<InvalidOperationException>(() => video.MarkFailed(TimeProvider.System));
     }
 
     [Fact]
     public void UpdateTitle_ChangesTitle()
     {
-        var video = Video.Create(MakeTweetUrl(), MakeTitle());
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
         var newTitle = VideoTitle.Create("Updated Title");
 
-        video.UpdateTitle(newTitle);
+        video.UpdateTitle(newTitle, TimeProvider.System);
 
         Assert.Equal(newTitle, video.Title);
     }
@@ -146,8 +146,8 @@ public class VideoTests
     [Fact]
     public void UpdateTitle_Null_ThrowsArgumentNullException()
     {
-        var video = Video.Create(MakeTweetUrl(), MakeTitle());
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
 
-        Assert.Throws<ArgumentNullException>(() => video.UpdateTitle(null!));
+        Assert.Throws<ArgumentNullException>(() => video.UpdateTitle(null!, TimeProvider.System));
     }
 }

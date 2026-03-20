@@ -8,7 +8,7 @@ public class TagTests
     [Fact]
     public void Create_ValidArgs_ReturnsTag()
     {
-        var tag = Tag.Create("anime", TagColor.Blue);
+        var tag = Tag.Create("anime", TagColor.Blue, TimeProvider.System);
 
         Assert.NotEqual(Guid.Empty, tag.Id);
         Assert.Equal("anime", tag.Name);
@@ -18,7 +18,7 @@ public class TagTests
     [Fact]
     public void Create_NameWithWhitespace_IsTrimmed()
     {
-        var tag = Tag.Create("  anime  ", TagColor.Red);
+        var tag = Tag.Create("  anime  ", TagColor.Red, TimeProvider.System);
 
         Assert.Equal("anime", tag.Name);
     }
@@ -29,15 +29,15 @@ public class TagTests
     [InlineData(null)]
     public void Create_NullOrWhiteSpaceName_ThrowsArgumentException(string? name)
     {
-        Assert.ThrowsAny<ArgumentException>(() => Tag.Create(name!, TagColor.Blue));
+        Assert.ThrowsAny<ArgumentException>(() => Tag.Create(name!, TagColor.Blue, TimeProvider.System));
     }
 
     [Fact]
     public void Update_ChangesNameAndColor()
     {
-        var tag = Tag.Create("anime", TagColor.Blue);
+        var tag = Tag.Create("anime", TagColor.Blue, TimeProvider.System);
 
-        tag.Update("manga", TagColor.Red);
+        tag.Update("manga", TagColor.Red, TimeProvider.System);
 
         Assert.Equal("manga", tag.Name);
         Assert.Equal(TagColor.Red, tag.Color);

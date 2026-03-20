@@ -20,6 +20,9 @@ param sqlAdminLogin string = 'xvcadmin'
 @secure()
 param sqlAdminPassword string
 
+@description('Azure SQL Free Tier を使用するか。サブスクリプションに既存の Free Tier DB がある場合は false を指定')
+param sqlUseFreeLimit bool = true
+
 var resourcePrefix = '${appName}-${environment}'
 var tags = {
   application: 'x-video-collector'
@@ -54,6 +57,7 @@ module sql 'modules/sql.bicep' = {
     appName: resourcePrefix
     sqlAdminLogin: sqlAdminLogin
     sqlAdminPassword: sqlAdminPassword
+    useFreeLimit: sqlUseFreeLimit
     tags: tags
   }
 }

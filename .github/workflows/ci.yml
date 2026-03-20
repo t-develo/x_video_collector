@@ -22,14 +22,15 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore src/api/XVideoCollector.Domain/XVideoCollector.Domain.csproj
-          && dotnet restore src/api/XVideoCollector.Application/XVideoCollector.Application.csproj
-          && dotnet restore src/api/XVideoCollector.Infrastructure/XVideoCollector.Infrastructure.csproj
-          && dotnet restore src/api/XVideoCollector.Functions/XVideoCollector.Functions.csproj
-          && dotnet restore tests/XVideoCollector.Domain.Tests/XVideoCollector.Domain.Tests.csproj
-          && dotnet restore tests/XVideoCollector.Application.Tests/XVideoCollector.Application.Tests.csproj
-          && dotnet restore tests/XVideoCollector.Infrastructure.Tests/XVideoCollector.Infrastructure.Tests.csproj
-          && dotnet restore tests/XVideoCollector.Functions.Tests/XVideoCollector.Functions.Tests.csproj
+        run: |
+          dotnet restore src/api/XVideoCollector.Domain/XVideoCollector.Domain.csproj
+          dotnet restore src/api/XVideoCollector.Application/XVideoCollector.Application.csproj
+          dotnet restore src/api/XVideoCollector.Infrastructure/XVideoCollector.Infrastructure.csproj
+          dotnet restore src/api/XVideoCollector.Functions/XVideoCollector.Functions.csproj
+          dotnet restore tests/XVideoCollector.Domain.Tests/XVideoCollector.Domain.Tests.csproj
+          dotnet restore tests/XVideoCollector.Application.Tests/XVideoCollector.Application.Tests.csproj
+          dotnet restore tests/XVideoCollector.Infrastructure.Tests/XVideoCollector.Infrastructure.Tests.csproj
+          dotnet restore tests/XVideoCollector.Functions.Tests/XVideoCollector.Functions.Tests.csproj
 
       - name: Build
         run: |

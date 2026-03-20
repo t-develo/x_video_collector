@@ -25,7 +25,16 @@ az ad app create \
   --sign-in-audience AzureADMyOrg
 ```
 
-取得した `appId` を `staticwebapp.config.json` の `openIdIssuer` に設定します。
+取得した `appId` と テナント ID を `staticwebapp.config.json` の `openIdIssuer` に設定します。
+
+```bash
+TENANT_ID=$(az account show --query tenantId -o tsv)
+
+# src/frontend/staticwebapp.config.json の __TENANT_ID__ を実際のテナント ID に置換
+sed -i "s/__TENANT_ID__/${TENANT_ID}/g" src/frontend/staticwebapp.config.json
+```
+
+> **重要:** `openIdIssuer` には `/common` ではなくテナント固有の URL (`https://login.microsoftonline.com/{TENANT_ID}/v2.0`) を使用してください。`/common` はクロステナントサインインを許可するため、個人利用アプリには不適切です。
 
 ### 1.2 GitHub OIDC 設定（デプロイ用）
 
@@ -114,18 +123,7 @@ curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe \
 cp /path/to/ffmpeg.exe src/api/XVideoCollector.Functions/ffmpeg.exe
 ```
 
-`.csproj` にバイナリをコンテンツとして含めます：
-
-```xml
-<ItemGroup>
-  <None Update="yt-dlp.exe">
-    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-  </None>
-  <None Update="ffmpeg.exe">
-    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-  </None>
-</ItemGroup>
-```
+`XVideoCollector.Functions.csproj` には既にバイナリ用の `ItemGroup` が定義されています（`Condition="Exists(...)"` 付き）。バイナリファイルを上記のパスに配置するだけでビルド時に自動的にデプロイパッケージへ含まれます。
 
 ---
 
@@ -139,16 +137,16 @@ cp /path/to/ffmpeg.exe src/api/XVideoCollector.Functions/ffmpeg.exe
 CI ジョブ：
 1. **dotnet-test** — .NET ビルド + 全テスト実行
 2. **js-test** — Vitest によるフロントエンドテスト
-3. **build-functions** — Azure Functions の Publish（アーティファクト保存）
+3. **build-functions** — Azure Functions の Publish（PR レビュー用にアーティファクト保存）
 
 ### Deploy（自動実行タイミング）
 
 - `main` ブランチへの push（PR マージ後）
 
 Deploy ジョブ：
-1. **infra** — Bicep でインフラデプロイ
-2. **deploy-functions** — Azure Functions にデプロイ
-3. **deploy-frontend** — Azure Static Web Apps にデプロイ
+1. **infra** — Bicep でインフラデプロイ（SWA API キーを出力として取得）
+2. **deploy-functions** — ソースから直接 Publish → Azure Functions にデプロイ
+3. **deploy-frontend** — infra ジョブの出力 API キーを使って Static Web Apps にデプロイ
 
 ---
 
@@ -179,7 +177,8 @@ Deploy ジョブ：
 | `AZURE_TENANT_ID` | Entra ID テナント ID |
 | `AZURE_SUBSCRIPTION_ID` | Azure サブスクリプション ID |
 | `SQL_ADMIN_PASSWORD` | SQL Server 管理者パスワード |
-| `AZURE_STATIC_WEB_APPS_API_TOKEN` | Static Web Apps デプロイ用 API トークン |
+
+> **注:** Static Web Apps の API トークンは Bicep デプロイの出力から自動取得するため、GitHub Secret への手動登録は不要です。
 
 ### GitHub Variables（オプション）
 
@@ -224,7 +223,7 @@ az deployment sub what-if \
 
 **SQL Free Tier の制限:**
 - Azure SQL Free Tier は 1 サブスクリプションにつき 1 データベースのみ
-- 既存の Free Tier データベースがある場合は `useFreeLimit: false` に変更し、代わりに Basic SKU を使用
+- 既存の Free Tier データベースがある場合は、`infra/parameters.json` に `"sqlUseFreeLimit": { "value": false }` を追加するか、デプロイ時に `sqlUseFreeLimit=false` を渡す。この場合 Basic SKU (5 DTU, 2GB) が使用される
 
 **yt-dlp / ffmpeg が動作しない場合:**
 - Azure Functions (Consumption Plan, Windows) では実行可能ファイルを `wwwroot` に配置する

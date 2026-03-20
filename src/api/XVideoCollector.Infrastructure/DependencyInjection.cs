@@ -44,6 +44,8 @@ public static class DependencyInjection
         services.AddScoped<IVideoDownloadService, YtDlpDownloadService>();
         services.AddScoped<IThumbnailService, FfmpegThumbnailService>();
 
+        services.AddSingleton(TimeProvider.System);
+
         return services;
     }
 }

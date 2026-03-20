@@ -22,7 +22,8 @@ public sealed class DownloadVideoUseCaseTests
             _videoRepoMock.Object,
             _downloadMock.Object,
             _blobMock.Object,
-            _thumbnailMock.Object);
+            _thumbnailMock.Object,
+            TimeProvider.System);
     }
 
     [Fact]
@@ -41,7 +42,8 @@ public sealed class DownloadVideoUseCaseTests
     {
         var video = Video.Create(
             TweetUrl.Create("https://x.com/u/status/77"),
-            VideoTitle.Create("Fail Video"));
+            VideoTitle.Create("Fail Video"),
+            TimeProvider.System);
         _videoRepoMock
             .Setup(r => r.GetByIdAsync(video.Id, default))
             .ReturnsAsync(video);

@@ -27,7 +27,8 @@ public sealed class VideoRepositoryTests : IDisposable
     {
         var video = Video.Create(
             TweetUrl.Create("https://x.com/user/status/123456"),
-            VideoTitle.Create("Test Video"));
+            VideoTitle.Create("Test Video"),
+            TimeProvider.System);
 
         await _sut.AddAsync(video);
         var result = await _sut.GetByIdAsync(video.Id);
@@ -48,8 +49,8 @@ public sealed class VideoRepositoryTests : IDisposable
     [Fact]
     public async Task GetAllAsync_ReturnsAllVideos()
     {
-        var v1 = Video.Create(TweetUrl.Create("https://x.com/user/status/111"), VideoTitle.Create("V1"));
-        var v2 = Video.Create(TweetUrl.Create("https://x.com/user/status/222"), VideoTitle.Create("V2"));
+        var v1 = Video.Create(TweetUrl.Create("https://x.com/user/status/111"), VideoTitle.Create("V1"), TimeProvider.System);
+        var v2 = Video.Create(TweetUrl.Create("https://x.com/user/status/222"), VideoTitle.Create("V2"), TimeProvider.System);
 
         await _sut.AddAsync(v1);
         await _sut.AddAsync(v2);
@@ -64,10 +65,11 @@ public sealed class VideoRepositoryTests : IDisposable
     {
         var video = Video.Create(
             TweetUrl.Create("https://x.com/user/status/123"),
-            VideoTitle.Create("Original Title"));
+            VideoTitle.Create("Original Title"),
+            TimeProvider.System);
         await _sut.AddAsync(video);
 
-        video.UpdateTitle(VideoTitle.Create("Updated Title"));
+        video.UpdateTitle(VideoTitle.Create("Updated Title"), TimeProvider.System);
         await _sut.UpdateAsync(video);
 
         var result = await _sut.GetByIdAsync(video.Id);
@@ -80,7 +82,8 @@ public sealed class VideoRepositoryTests : IDisposable
     {
         var video = Video.Create(
             TweetUrl.Create("https://x.com/user/status/999"),
-            VideoTitle.Create("To Delete"));
+            VideoTitle.Create("To Delete"),
+            TimeProvider.System);
         await _sut.AddAsync(video);
 
         await _sut.DeleteAsync(video.Id);
@@ -92,10 +95,10 @@ public sealed class VideoRepositoryTests : IDisposable
     [Fact]
     public async Task SearchAsync_ByStatus_FiltersCorrectly()
     {
-        var pending = Video.Create(TweetUrl.Create("https://x.com/u/status/1"), VideoTitle.Create("Pending"));
-        var failing = Video.Create(TweetUrl.Create("https://x.com/u/status/2"), VideoTitle.Create("Failing"));
-        failing.StartDownloading();
-        failing.MarkFailed();
+        var pending = Video.Create(TweetUrl.Create("https://x.com/u/status/1"), VideoTitle.Create("Pending"), TimeProvider.System);
+        var failing = Video.Create(TweetUrl.Create("https://x.com/u/status/2"), VideoTitle.Create("Failing"), TimeProvider.System);
+        failing.StartDownloading(TimeProvider.System);
+        failing.MarkFailed(TimeProvider.System);
 
         await _sut.AddAsync(pending);
         await _sut.AddAsync(failing);

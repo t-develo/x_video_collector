@@ -24,7 +24,7 @@ public sealed class CategoryRepositoryTests : IDisposable
     [Fact]
     public async Task AddAsync_ThenGetByIdAsync_ReturnsCategory()
     {
-        var category = Category.Create("Gaming", 1);
+        var category = Category.Create("Gaming", 1, TimeProvider.System);
 
         await _sut.AddAsync(category);
         var result = await _sut.GetByIdAsync(category.Id);
@@ -37,8 +37,8 @@ public sealed class CategoryRepositoryTests : IDisposable
     [Fact]
     public async Task GetAllAsync_ReturnsSortedBySortOrder()
     {
-        await _sut.AddAsync(Category.Create("ZCategory", 2));
-        await _sut.AddAsync(Category.Create("ACategory", 1));
+        await _sut.AddAsync(Category.Create("ZCategory", 2, TimeProvider.System));
+        await _sut.AddAsync(Category.Create("ACategory", 1, TimeProvider.System));
 
         var result = await _sut.GetAllAsync();
 
@@ -50,7 +50,7 @@ public sealed class CategoryRepositoryTests : IDisposable
     [Fact]
     public async Task DeleteAsync_RemovesCategory()
     {
-        var category = Category.Create("ToDelete", 0);
+        var category = Category.Create("ToDelete", 0, TimeProvider.System);
         await _sut.AddAsync(category);
 
         await _sut.DeleteAsync(category.Id);
@@ -62,10 +62,10 @@ public sealed class CategoryRepositoryTests : IDisposable
     [Fact]
     public async Task UpdateAsync_PersistsChanges()
     {
-        var category = Category.Create("Original", 0);
+        var category = Category.Create("Original", 0, TimeProvider.System);
         await _sut.AddAsync(category);
 
-        category.Update("Updated", 5);
+        category.Update("Updated", 5, TimeProvider.System);
         await _sut.UpdateAsync(category);
 
         var result = await _sut.GetByIdAsync(category.Id);

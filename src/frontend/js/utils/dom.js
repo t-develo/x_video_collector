@@ -15,8 +15,6 @@ export function createElement(tag, attrs = {}, children = null) {
       el.className = String(value);
     } else if (key === 'textContent') {
       el.textContent = String(value);
-    } else if (key === 'style' && typeof value === 'object') {
-      Object.assign(el.style, value);
     } else if (key.startsWith('on') && typeof value === 'function') {
       el.addEventListener(key.slice(2).toLowerCase(), value);
     } else {

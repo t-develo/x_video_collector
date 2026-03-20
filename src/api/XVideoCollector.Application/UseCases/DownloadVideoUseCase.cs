@@ -9,7 +9,8 @@ public sealed class DownloadVideoUseCase(
     IVideoRepository videoRepository,
     IVideoDownloadService downloadService,
     IBlobStorageService blobStorageService,
-    IThumbnailService thumbnailService) : IDownloadVideoUseCase
+    IThumbnailService thumbnailService,
+    TimeProvider timeProvider) : IDownloadVideoUseCase
 {
     public async Task ExecuteAsync(
         Guid videoId,
@@ -18,7 +19,7 @@ public sealed class DownloadVideoUseCase(
         var video = await videoRepository.GetByIdAsync(videoId, cancellationToken)
             ?? throw new InvalidOperationException($"Video '{videoId}' not found.");
 
-        video.StartDownloading();
+        video.StartDownloading(timeProvider);
         await videoRepository.UpdateAsync(video, cancellationToken);
 
         string? tempDir = null;
@@ -29,7 +30,7 @@ public sealed class DownloadVideoUseCase(
 
             tempDir = Path.GetDirectoryName(result.FilePath);
 
-            video.StartProcessing();
+            video.StartProcessing(timeProvider);
             await videoRepository.UpdateAsync(video, cancellationToken);
 
             using var videoStream = File.OpenRead(result.FilePath);
@@ -54,13 +55,14 @@ public sealed class DownloadVideoUseCase(
                 BlobPath.Create(blobPath),
                 thumbnailBlobPath is not null ? BlobPath.Create(thumbnailBlobPath) : null,
                 result.DurationSeconds,
-                result.FileSizeBytes);
+                result.FileSizeBytes,
+                timeProvider);
 
             await videoRepository.UpdateAsync(video, cancellationToken);
         }
         catch
         {
-            video.MarkFailed();
+            video.MarkFailed(timeProvider);
             await videoRepository.UpdateAsync(video, cancellationToken);
             throw;
         }

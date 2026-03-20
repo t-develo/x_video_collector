@@ -19,7 +19,8 @@ public sealed class UpdateVideoUseCaseTests
         _sut = new UpdateVideoUseCase(
             _videoRepoMock.Object,
             _tagRepoMock.Object,
-            _videoTagRepoMock.Object);
+            _videoTagRepoMock.Object,
+            TimeProvider.System);
     }
 
     [Fact]
@@ -27,7 +28,8 @@ public sealed class UpdateVideoUseCaseTests
     {
         var video = Video.Create(
             TweetUrl.Create("https://x.com/u/status/9"),
-            VideoTitle.Create("Old Title"));
+            VideoTitle.Create("Old Title"),
+            TimeProvider.System);
         var categoryId = Guid.NewGuid();
         var tagId = Guid.NewGuid();
 

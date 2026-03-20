@@ -12,7 +12,7 @@ public sealed class ManageCategoriesUseCaseTests
 
     public ManageCategoriesUseCaseTests()
     {
-        _sut = new ManageCategoriesUseCase(_categoryRepoMock.Object);
+        _sut = new ManageCategoriesUseCase(_categoryRepoMock.Object, TimeProvider.System);
     }
 
     [Fact]
@@ -20,8 +20,8 @@ public sealed class ManageCategoriesUseCaseTests
     {
         var categories = new List<Category>
         {
-            Category.Create("Music", 0),
-            Category.Create("Gaming", 1),
+            Category.Create("Music", 0, TimeProvider.System),
+            Category.Create("Gaming", 1, TimeProvider.System),
         };
         _categoryRepoMock.Setup(r => r.GetAllAsync(default)).ReturnsAsync(categories);
 
@@ -55,7 +55,7 @@ public sealed class ManageCategoriesUseCaseTests
     [Fact]
     public async Task DeleteAsync_ExistingCategory_CallsRepository()
     {
-        var category = Category.Create("ToDelete", 0);
+        var category = Category.Create("ToDelete", 0, TimeProvider.System);
         _categoryRepoMock
             .Setup(r => r.GetByIdAsync(category.Id, default))
             .ReturnsAsync(category);

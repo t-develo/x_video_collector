@@ -13,7 +13,7 @@ public sealed class ManageTagsUseCaseTests
 
     public ManageTagsUseCaseTests()
     {
-        _sut = new ManageTagsUseCase(_tagRepoMock.Object);
+        _sut = new ManageTagsUseCase(_tagRepoMock.Object, TimeProvider.System);
     }
 
     [Fact]
@@ -21,8 +21,8 @@ public sealed class ManageTagsUseCaseTests
     {
         var tags = new List<Tag>
         {
-            Tag.Create("Action", TagColor.Red),
-            Tag.Create("Comedy", TagColor.Yellow),
+            Tag.Create("Action", TagColor.Red, TimeProvider.System),
+            Tag.Create("Comedy", TagColor.Yellow, TimeProvider.System),
         };
         _tagRepoMock.Setup(r => r.GetAllAsync(default)).ReturnsAsync(tags);
 
@@ -56,7 +56,7 @@ public sealed class ManageTagsUseCaseTests
     [Fact]
     public async Task DeleteAsync_ExistingTag_CallsRepository()
     {
-        var tag = Tag.Create("ToDelete", TagColor.Pink);
+        var tag = Tag.Create("ToDelete", TagColor.Pink, TimeProvider.System);
         _tagRepoMock
             .Setup(r => r.GetByIdAsync(tag.Id, default))
             .ReturnsAsync(tag);

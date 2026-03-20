@@ -5,7 +5,7 @@ using XVideoCollector.Domain.Repositories;
 
 namespace XVideoCollector.Application.UseCases;
 
-public sealed class ManageCategoriesUseCase(ICategoryRepository categoryRepository) : IManageCategoriesUseCase
+public sealed class ManageCategoriesUseCase(ICategoryRepository categoryRepository, TimeProvider timeProvider) : IManageCategoriesUseCase
 {
     public async Task<IReadOnlyList<CategoryDto>> GetAllAsync(
         CancellationToken cancellationToken = default)
@@ -27,7 +27,7 @@ public sealed class ManageCategoriesUseCase(ICategoryRepository categoryReposito
         int sortOrder = 0,
         CancellationToken cancellationToken = default)
     {
-        var category = Category.Create(name, sortOrder);
+        var category = Category.Create(name, sortOrder, timeProvider);
         await categoryRepository.AddAsync(category, cancellationToken);
         return VideoMapper.ToDto(category);
     }
@@ -41,7 +41,7 @@ public sealed class ManageCategoriesUseCase(ICategoryRepository categoryReposito
         var category = await categoryRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"Category '{id}' not found.");
 
-        category.Update(name, sortOrder);
+        category.Update(name, sortOrder, timeProvider);
         await categoryRepository.UpdateAsync(category, cancellationToken);
         return VideoMapper.ToDto(category);
     }

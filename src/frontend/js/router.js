@@ -1,6 +1,6 @@
 // router.js — Hash ベースクライアントサイドルーター
 
-import { clearChildren } from './utils/dom.js';
+import { clearChildren, createElement } from './utils/dom.js';
 
 /** @type {Map<string, function(HTMLElement): void>} */
 const routes = new Map();
@@ -71,16 +71,9 @@ function updateActiveNavLinks(currentPath) {
  * @param {HTMLElement} container
  */
 function render404(container) {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'not-found-wrapper';
-
-  const code = document.createElement('p');
-  code.className = 'not-found-code';
-  code.textContent = '404';
-
-  const msg = document.createElement('p');
-  msg.className = 'not-found-message';
-  msg.textContent = 'ページが見つかりません';
+  const wrapper = createElement('div', { className: 'not-found-wrapper' });
+  const code = createElement('p', { className: 'not-found-code', textContent: '404' });
+  const msg = createElement('p', { className: 'not-found-message', textContent: 'ページが見つかりません' });
 
   wrapper.appendChild(code);
   wrapper.appendChild(msg);

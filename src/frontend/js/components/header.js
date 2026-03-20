@@ -7,6 +7,7 @@ const NAV_LINKS = [
   { label: '動画一覧', path: '/videos' },
   { label: '登録', path: '/register' },
   { label: 'タグ管理', path: '/tags' },
+  { label: 'カテゴリ管理', path: '/categories' },
 ];
 
 /**

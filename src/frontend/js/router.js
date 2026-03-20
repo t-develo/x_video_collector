@@ -5,13 +5,29 @@ import { clearChildren, createElement } from './utils/dom.js';
 /** @type {Map<string, function(HTMLElement): void>} */
 const routes = new Map();
 
+/** @type {Array<{ pattern: RegExp, paramNames: string[], handler: function(HTMLElement, ...string): void }>} */
+const paramRoutes = [];
+
 /**
  * ルートを登録する
- * @param {string} path - ハッシュパス（例: '/', '/register'）
- * @param {function(HTMLElement): void} handler
+ * @param {string} path - ハッシュパス（例: '/', '/register', '/videos/:id'）
+ * @param {function(HTMLElement, ...string): void} handler
  */
 export function addRoute(path, handler) {
-  routes.set(path, handler);
+  if (path.includes(':')) {
+    const paramNames = [];
+    const regexStr = path.replace(/:([^/]+)/g, (_match, name) => {
+      paramNames.push(name);
+      return '([^/]+)';
+    });
+    paramRoutes.push({
+      pattern: new RegExp(`^${regexStr}$`),
+      paramNames,
+      handler,
+    });
+  } else {
+    routes.set(path, handler);
+  }
 }
 
 /**
@@ -31,6 +47,21 @@ export function getCurrentPath() {
 }
 
 /**
+ * パラメータ付きルートをマッチングする
+ * @param {string} path
+ * @returns {{ handler: function, params: string[] } | null}
+ */
+function matchParamRoute(path) {
+  for (const route of paramRoutes) {
+    const match = path.match(route.pattern);
+    if (match) {
+      return { handler: route.handler, params: match.slice(1) };
+    }
+  }
+  return null;
+}
+
+/**
  * ルーターを起動する
  * @param {HTMLElement} container - ページコンテンツを描画するコンテナ
  */
@@ -44,7 +75,12 @@ export function startRouter(container) {
     if (handler) {
       handler(container);
     } else {
-      render404(container);
+      const paramMatch = matchParamRoute(path);
+      if (paramMatch) {
+        paramMatch.handler(container, ...paramMatch.params);
+      } else {
+        render404(container);
+      }
     }
 
     updateActiveNavLinks(path);

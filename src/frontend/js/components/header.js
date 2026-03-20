@@ -16,7 +16,6 @@ const NAV_LINKS = [
 export function renderHeader(container) {
   const logo = createElement('span', { className: 'header-logo' }, 'X_VIDEO_COLLECTOR');
   logo.addEventListener('click', () => navigateTo('/videos'));
-  logo.style.cursor = 'pointer';
 
   const nav = createElement('nav', { className: 'header-nav' });
   NAV_LINKS.forEach(({ label, path }) => {

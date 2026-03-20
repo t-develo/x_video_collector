@@ -27,6 +27,20 @@
   margin-top: 1rem;
 }
 
+.placeholder-wrapper {
+  padding: var(--space-xl);
+}
+
+.placeholder-title {
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+  margin-bottom: var(--space-md);
+}
+
+.placeholder-message {
+  color: var(--color-text-secondary);
+}
+
 #toast-container {
   position: fixed;
   bottom: var(--space-xl);

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderTagManagePage, getTagColorCss } from '../../../src/frontend/js/pages/tagManage.js';
+import { renderTagManagePage } from '../../../src/frontend/js/pages/tagManage.js';
+import { getTagColorCss } from '../../../src/frontend/js/utils/tagColor.js';
 
 vi.mock('../../../src/frontend/js/api.js', () => ({
   api: {

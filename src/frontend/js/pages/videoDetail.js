@@ -5,7 +5,6 @@ import { api, ApiError } from '../api.js';
 import { toast } from '../components/toast.js';
 import { navigateTo } from '../router.js';
 import { formatDate, formatDuration, formatFileSize } from '../utils/format.js';
-import { getTagColorCss } from './tagManage.js';
 
 /**
  * タグチップ（選択可能）を生成する

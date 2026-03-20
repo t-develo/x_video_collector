@@ -354,3 +354,34 @@
   opacity: 0.3;
   cursor: not-allowed;
 }
+
+/* ========== レスポンシブ ========== */
+
+@media (max-width: 768px) {
+  .tag-create-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tag-create-input,
+  .tag-edit-input {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .category-create-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .category-create-input,
+  .category-edit-input {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .tag-row,
+  .category-row {
+    flex-wrap: wrap;
+  }
+}

@@ -54,4 +54,8 @@
   /* レイアウト */
   --header-height: 56px;
   --content-max-width: 1200px;
+
+  /* ブレークポイント（メディアクエリで使用する定数） */
+  --bp-tablet: 768px;
+  --bp-desktop: 1200px;
 }

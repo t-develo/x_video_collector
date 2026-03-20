@@ -46,5 +46,16 @@ describe('router', () => {
 
       expect(container.textContent).toContain('404');
     });
+
+    it('パラメータ付きルートがマッチする', () => {
+      const container = document.getElementById('container');
+      const handler = vi.fn();
+
+      addRoute('/items/:id', handler);
+      window.location.hash = '#/items/abc-123';
+      startRouter(container);
+
+      expect(handler).toHaveBeenCalledWith(container, 'abc-123');
+    });
   });
 });

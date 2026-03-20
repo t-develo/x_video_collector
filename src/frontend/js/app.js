@@ -2,9 +2,11 @@
 
 import { addRoute, startRouter } from './router.js';
 import { renderHeader } from './components/header.js';
-import { createPlaceholderPage } from './pages/placeholder.js';
 import { renderRegisterPage } from './pages/register.js';
 import { renderVideoListPage } from './pages/videoList.js';
+import { renderTagManagePage } from './pages/tagManage.js';
+import { renderCategoryManagePage } from './pages/categoryManage.js';
+import { renderVideoDetailPage } from './pages/videoDetail.js';
 
 function init() {
   // ヘッダーレンダリング
@@ -15,7 +17,9 @@ function init() {
   addRoute('/', renderVideoListPage);
   addRoute('/videos', renderVideoListPage);
   addRoute('/register', renderRegisterPage);
-  addRoute('/tags', createPlaceholderPage('タグ管理'));
+  addRoute('/tags', renderTagManagePage);
+  addRoute('/categories', renderCategoryManagePage);
+  addRoute('/videos/:id', (container, id) => renderVideoDetailPage(container, id));
 
   // ルーター起動
   const main = document.getElementById('main-content');

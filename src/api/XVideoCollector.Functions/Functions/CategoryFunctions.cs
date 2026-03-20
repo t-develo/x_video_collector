@@ -1,19 +1,14 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using System.Text.Json;
-using XVideoCollector.Application.UseCases;
+using XVideoCollector.Application.Interfaces;
+using XVideoCollector.Functions.Helpers;
 
 namespace XVideoCollector.Functions.Functions;
 
 public sealed class CategoryFunctions(
-    ManageCategoriesUseCase manageCategories)
+    IManageCategoriesUseCase manageCategories)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
     [Function("ListCategories")]
     public async Task<IActionResult> ListCategoriesAsync(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "categories")] HttpRequest req,
@@ -28,7 +23,7 @@ public sealed class CategoryFunctions(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "categories")] HttpRequest req,
         CancellationToken cancellationToken)
     {
-        var body = await ReadBodyAsync<CreateCategoryRequest>(req, cancellationToken);
+        var body = await FunctionHelper.ReadBodyAsync<CreateCategoryRequest>(req, cancellationToken);
         if (body is null)
             return new BadRequestObjectResult(new { error = "Invalid request body." });
 
@@ -45,7 +40,7 @@ public sealed class CategoryFunctions(
         Guid id,
         CancellationToken cancellationToken)
     {
-        var body = await ReadBodyAsync<CreateCategoryRequest>(req, cancellationToken);
+        var body = await FunctionHelper.ReadBodyAsync<CreateCategoryRequest>(req, cancellationToken);
         if (body is null)
             return new BadRequestObjectResult(new { error = "Invalid request body." });
 
@@ -61,18 +56,6 @@ public sealed class CategoryFunctions(
     {
         await manageCategories.DeleteAsync(id, cancellationToken);
         return new NoContentResult();
-    }
-
-    private static async Task<T?> ReadBodyAsync<T>(HttpRequest req, CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await JsonSerializer.DeserializeAsync<T>(req.Body, JsonOptions, cancellationToken);
-        }
-        catch (JsonException)
-        {
-            return default;
-        }
     }
 }
 

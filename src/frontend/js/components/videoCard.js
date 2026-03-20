@@ -71,7 +71,7 @@ export function createVideoCard(video, onClick) {
       loading: 'lazy',
     });
     img.addEventListener('error', () => {
-      img.style.display = 'none';
+      img.classList.add('video-card__thumb-img--hidden');
       thumb.appendChild(createThumbPlaceholder());
     });
     thumb.appendChild(img);

@@ -10,20 +10,16 @@ import { createElement } from '../utils/dom.js';
 export function createPlaceholderPage(pageName) {
   return function renderPage(container) {
     const wrapper = createElement('div', {
-      style: { padding: 'var(--space-xl)' },
+      className: 'placeholder-wrapper',
     });
 
     const title = createElement('h2', {
-      style: {
-        fontFamily: 'var(--font-mono)',
-        color: 'var(--color-accent)',
-        marginBottom: 'var(--space-md)',
-      },
+      className: 'placeholder-title',
       textContent: pageName,
     });
 
     const msg = createElement('p', {
-      style: { color: 'var(--color-text-secondary)' },
+      className: 'placeholder-message',
       textContent: 'このページは Sprint 8 以降で実装予定です。',
     });
 

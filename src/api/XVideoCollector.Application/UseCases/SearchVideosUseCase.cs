@@ -1,13 +1,14 @@
 using XVideoCollector.Application.Dtos;
+using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Domain.Repositories;
 
 namespace XVideoCollector.Application.UseCases;
 
-public class SearchVideosUseCase(
+public sealed class SearchVideosUseCase(
     IVideoRepository videoRepository,
-    ITagRepository tagRepository)
+    ITagRepository tagRepository) : ISearchVideosUseCase
 {
-    public virtual async Task<PaginatedResult<VideoListItemDto>> ExecuteAsync(
+    public async Task<PaginatedResult<VideoListItemDto>> ExecuteAsync(
         SearchVideoRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -19,25 +20,22 @@ public class SearchVideosUseCase(
             TagIds: request.TagIds,
             CategoryId: request.CategoryId);
 
-        var results = await videoRepository.SearchAsync(query, cancellationToken);
-        var totalCount = results.Count;
-
         var page = request.Page < 1 ? 1 : request.Page;
         var pageSize = request.PageSize < 1 ? 20 : request.PageSize;
+        var skip = (page - 1) * pageSize;
 
-        var paged = results
-            .OrderByDescending(v => v.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
+        var (videos, totalCount) = await videoRepository.SearchPagedAsync(query, skip, pageSize, cancellationToken);
 
-        var items = new List<VideoListItemDto>(paged.Count);
-        foreach (var video in paged)
+        var videoIds = videos.Select(v => v.Id).ToList();
+        var tagsByVideoId = await tagRepository.GetByVideoIdsAsync(videoIds, cancellationToken);
+
+        var items = videos.Select(video =>
         {
-            var tags = await tagRepository.GetByVideoIdAsync(video.Id, cancellationToken);
-            var tagDtos = tags.Select(VideoMapper.ToDto).ToList();
-            items.Add(VideoMapper.ToListItemDto(video, tagDtos));
-        }
+            var tagDtos = tagsByVideoId.TryGetValue(video.Id, out var tags)
+                ? tags.Select(VideoMapper.ToDto).ToList()
+                : [];
+            return VideoMapper.ToListItemDto(video, tagDtos);
+        }).ToList();
 
         return new PaginatedResult<VideoListItemDto>(items, totalCount, page, pageSize);
     }

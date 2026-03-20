@@ -1,40 +1,41 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using XVideoCollector.Application.Dtos;
+using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Application.Services;
-using XVideoCollector.Application.UseCases;
+using XVideoCollector.Functions.Helpers;
 
 namespace XVideoCollector.Functions.Functions;
 
 public sealed class VideoFunctions(
-    RegisterVideoUseCase registerVideo,
-    GetVideoUseCase getVideo,
-    ListVideosUseCase listVideos,
-    UpdateVideoUseCase updateVideo,
-    DeleteVideoUseCase deleteVideo,
-    DownloadVideoUseCase downloadVideo,
-    SearchVideosUseCase searchVideos,
-    IBlobStorageService blobStorageService)
+    IRegisterVideoUseCase registerVideo,
+    IGetVideoUseCase getVideo,
+    IListVideosUseCase listVideos,
+    IUpdateVideoUseCase updateVideo,
+    IDeleteVideoUseCase deleteVideo,
+    IDownloadVideoUseCase downloadVideo,
+    ISearchVideosUseCase searchVideos,
+    IBlobStorageService blobStorageService,
+    ILogger<VideoFunctions> logger)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
     [Function("RegisterVideo")]
     public async Task<IActionResult> RegisterVideoAsync(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "videos")] HttpRequest req,
         CancellationToken cancellationToken)
     {
-        var request = await ReadBodyAsync<RegisterVideoRequest>(req, cancellationToken);
+        var request = await FunctionHelper.ReadBodyAsync<RegisterVideoRequest>(req, cancellationToken);
         if (request is null)
             return new BadRequestObjectResult(new { error = "Invalid request body." });
 
         var video = await registerVideo.ExecuteAsync(request, cancellationToken);
 
-        _ = Task.Run(() => downloadVideo.ExecuteAsync(video.Id, CancellationToken.None), CancellationToken.None);
+        // TODO: Queue Trigger（Azure Storage Queue）経由の非同期ダウンロードへ移行すること（Consumption Plan での fire-and-forget 禁止）
+        _ = Task.Run(() => downloadVideo.ExecuteAsync(video.Id, CancellationToken.None), CancellationToken.None)
+            .ContinueWith(
+                t => logger.LogError(t.Exception, "動画ダウンロードでエラーが発生しました。VideoId={VideoId}", video.Id),
+                TaskContinuationOptions.OnlyOnFaulted);
 
         return new CreatedAtRouteResult(
             routeName: null,
@@ -73,7 +74,7 @@ public sealed class VideoFunctions(
         Guid id,
         CancellationToken cancellationToken)
     {
-        var request = await ReadBodyAsync<UpdateVideoRequest>(req, cancellationToken);
+        var request = await FunctionHelper.ReadBodyAsync<UpdateVideoRequest>(req, cancellationToken);
         if (request is null)
             return new BadRequestObjectResult(new { error = "Invalid request body." });
 
@@ -127,18 +128,6 @@ public sealed class VideoFunctions(
 
         var result = await searchVideos.ExecuteAsync(request, cancellationToken);
         return new OkObjectResult(result);
-    }
-
-    private static async Task<T?> ReadBodyAsync<T>(HttpRequest req, CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await JsonSerializer.DeserializeAsync<T>(req.Body, JsonOptions, cancellationToken);
-        }
-        catch (JsonException)
-        {
-            return default;
-        }
     }
 
     private static int ParseIntQuery(HttpRequest req, string key, int defaultValue)

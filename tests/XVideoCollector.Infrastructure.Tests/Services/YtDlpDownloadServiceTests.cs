@@ -75,20 +75,10 @@ public class YtDlpDownloadServiceTests
     }
 
     [Fact]
-    public async Task DownloadAsync_TimeoutExpires_ThrowsTimeoutException()
+    public void YtDlpOptions_TimeoutSeconds_CanBeConfigured()
     {
-        var opts = new YtDlpOptions
-        {
-            // 存在しないコマンドでタイムアウトをテストするのは難しいので、
-            // タイムアウトを 0 秒に設定して ping などの長時間プロセスを起動
-            ExecutablePath = "ping",
-            TimeoutSeconds = 1,
-        };
-        var service = CreateService(opts);
+        var opts = new YtDlpOptions { TimeoutSeconds = 1 };
 
-        // ping はホワイトリスト URL では通らないので、
-        // 別のアプローチ：直接プロセスではなくタイムアウトロジックの設定確認
-        // タイムアウト設定が正しく読み込まれていることを確認
         Assert.Equal(1, opts.TimeoutSeconds);
     }
 

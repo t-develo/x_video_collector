@@ -4,27 +4,20 @@ using Moq;
 using System.Text;
 using System.Text.Json;
 using XVideoCollector.Application.Dtos;
-using XVideoCollector.Application.UseCases;
+using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Domain.Enums;
-using XVideoCollector.Domain.Repositories;
 using XVideoCollector.Functions.Functions;
 
 namespace XVideoCollector.Functions.Tests.Functions;
 
 public sealed class TagFunctionsTests
 {
-    private static readonly Mock<ITagRepository> TagRepo = new();
-
-    private static Mock<ManageTagsUseCase> DefaultMock() => new(TagRepo.Object);
-
-    private static TagFunctions CreateSut(Mock<ManageTagsUseCase>? manage = null) =>
-        new(manage?.Object ?? DefaultMock().Object);
-
     private static TagDto CreateTagDto(Guid? id = null) => new(
         Id: id ?? Guid.NewGuid(),
         Name: "TestTag",
         Color: TagColor.Blue,
-        CreatedAt: DateTimeOffset.UtcNow);
+        CreatedAt: DateTimeOffset.UtcNow,
+        UpdatedAt: DateTimeOffset.UtcNow);
 
     private static HttpRequest CreateRequest(string method = "GET", string? body = null)
     {
@@ -39,11 +32,14 @@ public sealed class TagFunctionsTests
         return context.Request;
     }
 
+    private static TagFunctions CreateSut(Mock<IManageTagsUseCase>? manage = null) =>
+        new(manage?.Object ?? new Mock<IManageTagsUseCase>().Object);
+
     [Fact]
     public async Task ListTags_ReturnsOk()
     {
         var tags = new List<TagDto> { CreateTagDto() };
-        var mock = DefaultMock();
+        var mock = new Mock<IManageTagsUseCase>();
         mock.Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(tags);
 
@@ -59,7 +55,7 @@ public sealed class TagFunctionsTests
         var tagDto = CreateTagDto();
         var body = JsonSerializer.Serialize(new { name = "NewTag", color = "Blue" });
 
-        var mock = DefaultMock();
+        var mock = new Mock<IManageTagsUseCase>();
         mock.Setup(x => x.CreateAsync(It.IsAny<string>(), It.IsAny<TagColor>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(tagDto);
 
@@ -81,7 +77,7 @@ public sealed class TagFunctionsTests
     [Fact]
     public async Task DeleteTag_ReturnsNoContent()
     {
-        var mock = DefaultMock();
+        var mock = new Mock<IManageTagsUseCase>();
         mock.Setup(x => x.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
@@ -97,7 +93,7 @@ public sealed class TagFunctionsTests
         var tagDto = CreateTagDto(tagId);
         var body = JsonSerializer.Serialize(new { name = "Updated", color = "Red" });
 
-        var mock = DefaultMock();
+        var mock = new Mock<IManageTagsUseCase>();
         mock.Setup(x => x.UpdateAsync(tagId, It.IsAny<string>(), It.IsAny<TagColor>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(tagDto);
 

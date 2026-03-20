@@ -24,14 +24,13 @@ public sealed class ListVideosUseCaseTests
         {
             Video.Create(TweetUrl.Create("https://x.com/u/status/1"), VideoTitle.Create("V1")),
             Video.Create(TweetUrl.Create("https://x.com/u/status/2"), VideoTitle.Create("V2")),
-            Video.Create(TweetUrl.Create("https://x.com/u/status/3"), VideoTitle.Create("V3")),
         };
         _videoRepoMock
-            .Setup(r => r.GetAllAsync(default))
-            .ReturnsAsync(videos);
+            .Setup(r => r.GetPagedAsync(0, 2, default))
+            .ReturnsAsync((videos, 3));
         _tagRepoMock
-            .Setup(r => r.GetByVideoIdAsync(It.IsAny<Guid>(), default))
-            .ReturnsAsync([]);
+            .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<Tag>>());
 
         var result = await _sut.ExecuteAsync(page: 1, pageSize: 2);
 
@@ -46,12 +45,39 @@ public sealed class ListVideosUseCaseTests
     public async Task ExecuteAsync_EmptyRepository_ReturnsEmptyResult()
     {
         _videoRepoMock
-            .Setup(r => r.GetAllAsync(default))
-            .ReturnsAsync([]);
+            .Setup(r => r.GetPagedAsync(0, 20, default))
+            .ReturnsAsync((new List<Video>(), 0));
+        _tagRepoMock
+            .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<Tag>>());
 
         var result = await _sut.ExecuteAsync();
 
         Assert.Equal(0, result.TotalCount);
         Assert.Empty(result.Items);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithTags_MapsTags()
+    {
+        var video = Video.Create(TweetUrl.Create("https://x.com/u/status/1"), VideoTitle.Create("V1"));
+        var tag = Tag.Create("test", Domain.Enums.TagColor.Blue);
+        var tagMap = new Dictionary<Guid, IReadOnlyList<Tag>>
+        {
+            { video.Id, new List<Tag> { tag } }
+        };
+
+        _videoRepoMock
+            .Setup(r => r.GetPagedAsync(0, 20, default))
+            .ReturnsAsync((new List<Video> { video }, 1));
+        _tagRepoMock
+            .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
+            .ReturnsAsync(tagMap);
+
+        var result = await _sut.ExecuteAsync();
+
+        Assert.Single(result.Items);
+        Assert.Single(result.Items[0].Tags);
+        Assert.Equal(tag.Name, result.Items[0].Tags[0].Name);
     }
 }

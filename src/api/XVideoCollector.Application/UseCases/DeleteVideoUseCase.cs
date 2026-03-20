@@ -1,14 +1,15 @@
+using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Application.Services;
 using XVideoCollector.Domain.Repositories;
 
 namespace XVideoCollector.Application.UseCases;
 
-public class DeleteVideoUseCase(
+public sealed class DeleteVideoUseCase(
     IVideoRepository videoRepository,
     IVideoTagRepository videoTagRepository,
-    IBlobStorageService blobStorageService)
+    IBlobStorageService blobStorageService) : IDeleteVideoUseCase
 {
-    public virtual async Task ExecuteAsync(
+    public async Task ExecuteAsync(
         Guid videoId,
         CancellationToken cancellationToken = default)
     {

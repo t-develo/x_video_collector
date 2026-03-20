@@ -4,4 +4,5 @@ public sealed record CategoryDto(
     Guid Id,
     string Name,
     int SortOrder,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);

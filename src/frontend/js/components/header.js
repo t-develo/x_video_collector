@@ -16,7 +16,6 @@ const NAV_LINKS = [
 export function renderHeader(container) {
   const logo = createElement('span', { className: 'header-logo' }, 'X_VIDEO_COLLECTOR');
   logo.addEventListener('click', () => navigateTo('/videos'));
-  logo.style.cursor = 'pointer';
 
   const nav = createElement('nav', { className: 'header-nav' });
   NAV_LINKS.forEach(({ label, path }) => {
@@ -27,7 +26,8 @@ export function renderHeader(container) {
     nav.appendChild(link);
   });
 
-  const userInfo = createUserInfo();
+  const userInfo = createElement('div', { className: 'header-user' });
+  loadUserInfo(userInfo);
 
   container.appendChild(logo);
   container.appendChild(nav);
@@ -35,25 +35,20 @@ export function renderHeader(container) {
 }
 
 /**
- * ユーザー情報エリアを生成する
- * @returns {HTMLElement}
+ * ユーザー情報を非同期で読み込みエリアを更新する
+ * @param {HTMLElement} wrapper
  */
-function createUserInfo() {
-  const wrapper = createElement('div', { className: 'header-user' });
-
-  fetch('/.auth/me')
-    .then(r => r.json())
-    .then(data => {
-      const principal = data?.clientPrincipal;
-      if (principal) {
-        const name = document.createElement('span');
-        name.textContent = principal.userDetails ?? principal.userId ?? '';
-        wrapper.appendChild(name);
-      }
-    })
-    .catch(() => {
-      // 認証情報取得失敗は無視
-    });
-
-  return wrapper;
+async function loadUserInfo(wrapper) {
+  try {
+    const r = await fetch('/.auth/me');
+    const data = await r.json();
+    const principal = data?.clientPrincipal;
+    if (principal) {
+      const name = document.createElement('span');
+      name.textContent = principal.userDetails ?? principal.userId ?? '';
+      wrapper.appendChild(name);
+    }
+  } catch {
+    // 認証情報取得失敗は無視
+  }
 }

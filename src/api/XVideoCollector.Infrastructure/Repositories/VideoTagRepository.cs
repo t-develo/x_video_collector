@@ -42,4 +42,21 @@ internal sealed class VideoTagRepository(AppDbContext db) : IVideoTagRepository
             await db.SaveChangesAsync(cancellationToken);
         }
     }
+
+    public async Task SyncByVideoIdAsync(
+        Guid videoId,
+        IReadOnlyList<Guid> tagIds,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await db.VideoTags
+            .Where(vt => vt.VideoId == videoId)
+            .ToListAsync(cancellationToken);
+
+        db.VideoTags.RemoveRange(existing);
+
+        foreach (var tagId in tagIds)
+            db.VideoTags.Add(new Domain.Entities.VideoTag(videoId, tagId));
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
 }

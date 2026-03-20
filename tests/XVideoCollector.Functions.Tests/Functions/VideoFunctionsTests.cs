@@ -1,68 +1,19 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using System.Text;
 using System.Text.Json;
 using XVideoCollector.Application.Dtos;
+using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Application.Services;
-using XVideoCollector.Application.UseCases;
 using XVideoCollector.Domain.Enums;
-using XVideoCollector.Domain.Repositories;
 using XVideoCollector.Functions.Functions;
 
 namespace XVideoCollector.Functions.Tests.Functions;
 
 public sealed class VideoFunctionsTests
 {
-    private static readonly Mock<IVideoRepository> VideoRepo = new();
-    private static readonly Mock<ITagRepository> TagRepo = new();
-    private static readonly Mock<IVideoTagRepository> VideoTagRepo = new();
-    private static readonly Mock<IBlobStorageService> Blob = new();
-    private static readonly Mock<IVideoDownloadService> DownloadService = new();
-    private static readonly Mock<IThumbnailService> ThumbnailService = new();
-
-    private static Mock<RegisterVideoUseCase> DefaultRegisterMock() =>
-        new(VideoRepo.Object);
-
-    private static Mock<GetVideoUseCase> DefaultGetMock() =>
-        new(VideoRepo.Object, TagRepo.Object);
-
-    private static Mock<ListVideosUseCase> DefaultListMock() =>
-        new(VideoRepo.Object, TagRepo.Object);
-
-    private static Mock<UpdateVideoUseCase> DefaultUpdateMock() =>
-        new(VideoRepo.Object, TagRepo.Object, VideoTagRepo.Object);
-
-    private static Mock<DeleteVideoUseCase> DefaultDeleteMock() =>
-        new(VideoRepo.Object, VideoTagRepo.Object, Blob.Object);
-
-    private static Mock<DownloadVideoUseCase> DefaultDownloadMock() =>
-        new(VideoRepo.Object, DownloadService.Object, Blob.Object, ThumbnailService.Object);
-
-    private static Mock<SearchVideosUseCase> DefaultSearchMock() =>
-        new(VideoRepo.Object, TagRepo.Object);
-
-    private static VideoFunctions CreateSut(
-        Mock<RegisterVideoUseCase>? registerVideo = null,
-        Mock<GetVideoUseCase>? getVideo = null,
-        Mock<ListVideosUseCase>? listVideos = null,
-        Mock<UpdateVideoUseCase>? updateVideo = null,
-        Mock<DeleteVideoUseCase>? deleteVideo = null,
-        Mock<DownloadVideoUseCase>? downloadVideo = null,
-        Mock<SearchVideosUseCase>? searchVideos = null,
-        Mock<IBlobStorageService>? blobStorage = null)
-    {
-        return new VideoFunctions(
-            registerVideo?.Object ?? DefaultRegisterMock().Object,
-            getVideo?.Object ?? DefaultGetMock().Object,
-            listVideos?.Object ?? DefaultListMock().Object,
-            updateVideo?.Object ?? DefaultUpdateMock().Object,
-            deleteVideo?.Object ?? DefaultDeleteMock().Object,
-            downloadVideo?.Object ?? DefaultDownloadMock().Object,
-            searchVideos?.Object ?? DefaultSearchMock().Object,
-            blobStorage?.Object ?? Blob.Object);
-    }
-
     private static VideoDto CreateVideoDto(Guid? id = null, string? blobPath = null) => new(
         Id: id ?? Guid.NewGuid(),
         TweetUrl: "https://x.com/user/status/123",
@@ -92,13 +43,35 @@ public sealed class VideoFunctionsTests
         return context.Request;
     }
 
+    private static VideoFunctions CreateSut(
+        Mock<IRegisterVideoUseCase>? registerVideo = null,
+        Mock<IGetVideoUseCase>? getVideo = null,
+        Mock<IListVideosUseCase>? listVideos = null,
+        Mock<IUpdateVideoUseCase>? updateVideo = null,
+        Mock<IDeleteVideoUseCase>? deleteVideo = null,
+        Mock<IDownloadVideoUseCase>? downloadVideo = null,
+        Mock<ISearchVideosUseCase>? searchVideos = null,
+        Mock<IBlobStorageService>? blobStorage = null)
+    {
+        return new VideoFunctions(
+            registerVideo?.Object ?? new Mock<IRegisterVideoUseCase>().Object,
+            getVideo?.Object ?? new Mock<IGetVideoUseCase>().Object,
+            listVideos?.Object ?? new Mock<IListVideosUseCase>().Object,
+            updateVideo?.Object ?? new Mock<IUpdateVideoUseCase>().Object,
+            deleteVideo?.Object ?? new Mock<IDeleteVideoUseCase>().Object,
+            downloadVideo?.Object ?? new Mock<IDownloadVideoUseCase>().Object,
+            searchVideos?.Object ?? new Mock<ISearchVideosUseCase>().Object,
+            blobStorage?.Object ?? new Mock<IBlobStorageService>().Object,
+            NullLogger<VideoFunctions>.Instance);
+    }
+
     [Fact]
     public async Task GetVideo_WhenFound_ReturnsOk()
     {
         var videoId = Guid.NewGuid();
         var expected = CreateVideoDto(videoId);
 
-        var getVideoMock = DefaultGetMock();
+        var getVideoMock = new Mock<IGetVideoUseCase>();
         getVideoMock
             .Setup(x => x.ExecuteAsync(videoId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
@@ -114,7 +87,7 @@ public sealed class VideoFunctionsTests
     [Fact]
     public async Task GetVideo_WhenNotFound_ReturnsNotFound()
     {
-        var getVideoMock = DefaultGetMock();
+        var getVideoMock = new Mock<IGetVideoUseCase>();
         getVideoMock
             .Setup(x => x.ExecuteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((VideoDto?)null);
@@ -131,7 +104,7 @@ public sealed class VideoFunctionsTests
     {
         var paginated = new PaginatedResult<VideoListItemDto>([], 0, 1, 20);
 
-        var listVideosMock = DefaultListMock();
+        var listVideosMock = new Mock<IListVideosUseCase>();
         listVideosMock
             .Setup(x => x.ExecuteAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(paginated);
@@ -151,12 +124,15 @@ public sealed class VideoFunctionsTests
         var videoDto = CreateVideoDto(videoId);
         var body = JsonSerializer.Serialize(new { tweetUrl = "https://x.com/user/status/123", title = "Test" });
 
-        var registerMock = DefaultRegisterMock();
+        var registerMock = new Mock<IRegisterVideoUseCase>();
         registerMock
             .Setup(x => x.ExecuteAsync(It.IsAny<RegisterVideoRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(videoDto);
 
-        var downloadMock = DefaultDownloadMock();
+        var downloadMock = new Mock<IDownloadVideoUseCase>();
+        downloadMock
+            .Setup(x => x.ExecuteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         var sut = CreateSut(registerVideo: registerMock, downloadVideo: downloadMock);
 
@@ -178,7 +154,10 @@ public sealed class VideoFunctionsTests
     [Fact]
     public async Task DeleteVideo_ReturnsNoContent()
     {
-        var deleteMock = DefaultDeleteMock();
+        var deleteMock = new Mock<IDeleteVideoUseCase>();
+        deleteMock
+            .Setup(x => x.ExecuteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         var sut = CreateSut(deleteVideo: deleteMock);
 
@@ -194,7 +173,7 @@ public sealed class VideoFunctionsTests
         var videoDto = CreateVideoDto(videoId, blobPath: "videos/test.mp4");
         const string expectedUrl = "https://storage.example.com/sas-url";
 
-        var getVideoMock = DefaultGetMock();
+        var getVideoMock = new Mock<IGetVideoUseCase>();
         getVideoMock
             .Setup(x => x.ExecuteAsync(videoId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(videoDto);
@@ -217,7 +196,7 @@ public sealed class VideoFunctionsTests
         var videoId = Guid.NewGuid();
         var videoDto = CreateVideoDto(videoId, blobPath: null);
 
-        var getVideoMock = DefaultGetMock();
+        var getVideoMock = new Mock<IGetVideoUseCase>();
         getVideoMock
             .Setup(x => x.ExecuteAsync(videoId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(videoDto);

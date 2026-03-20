@@ -1,38 +1,11 @@
 // pages/videoList.js — 動画一覧ページ
 
-import { createElement } from '../utils/dom.js';
+import { createElement, clearChildren } from '../utils/dom.js';
 import { api } from '../api.js';
 import { createVideoCard } from '../components/videoCard.js';
 import { navigateTo } from '../router.js';
 
 const PAGE_SIZE = 20;
-
-/** ソートオプション定義 */
-const SORT_OPTIONS = [
-  { value: 'createdAt_desc', label: '登録日時（新しい順）' },
-  { value: 'createdAt_asc', label: '登録日時（古い順）' },
-  { value: 'title_asc', label: 'タイトル（昇順）' },
-  { value: 'title_desc', label: 'タイトル（降順）' },
-];
-
-/**
- * 動画リストをソートする
- * @param {object[]} videos
- * @param {string} sortBy - 'createdAt' | 'title'
- * @param {string} sortOrder - 'asc' | 'desc'
- * @returns {object[]}
- */
-export function sortVideos(videos, sortBy, sortOrder) {
-  return [...videos].sort((a, b) => {
-    let cmp;
-    if (sortBy === 'title') {
-      cmp = (a.title || '').localeCompare(b.title || '', 'ja');
-    } else {
-      cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    }
-    return sortOrder === 'asc' ? cmp : -cmp;
-  });
-}
 
 /**
  * ページネーションコントロールを生成する
@@ -99,47 +72,12 @@ function createEmptyState() {
 }
 
 /**
- * ソートセレクトを生成する
- * @param {string} currentSort
- * @param {function(string): void} onChange
- * @returns {HTMLElement}
- */
-function createSortControl(currentSort, onChange) {
-  const wrapper = createElement('div', { className: 'video-list-sort' });
-
-  const label = createElement('label', {
-    className: 'video-list-sort__label',
-    textContent: '並び順:',
-  });
-  label.setAttribute('for', 'video-sort-select');
-
-  const select = createElement('select', {
-    className: 'video-list-sort__select',
-    id: 'video-sort-select',
-  });
-
-  SORT_OPTIONS.forEach(opt => {
-    const option = createElement('option', { value: opt.value, textContent: opt.label });
-    if (opt.value === currentSort) option.selected = true;
-    select.appendChild(option);
-  });
-
-  select.addEventListener('change', () => onChange(select.value));
-
-  wrapper.appendChild(label);
-  wrapper.appendChild(select);
-
-  return wrapper;
-}
-
-/**
- * 動画一覧ページを描画する
+ * 動画一覧ページを描画する（サーバーサイドページング）
  * @param {HTMLElement} container
  */
 export async function renderVideoListPage(container) {
-  let allVideos = [];
   let currentPage = 1;
-  let currentSort = 'createdAt_desc';
+  let totalCount = 0;
 
   // ページ構造を構築
   const page = createElement('div', { className: 'video-list-page' });
@@ -157,77 +95,60 @@ export async function renderVideoListPage(container) {
   page.appendChild(content);
   container.appendChild(page);
 
-  function render() {
-    const [sortBy, sortOrder] = currentSort.split('_');
-    const sorted = sortVideos(allVideos, sortBy, sortOrder);
-
-    const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-    if (currentPage > totalPages) currentPage = totalPages;
-
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const pageVideos = sorted.slice(start, start + PAGE_SIZE);
-
-    // コントロールバー再描画
-    while (controls.firstChild) controls.removeChild(controls.firstChild);
-
-    const countEl = createElement('span', {
-      className: 'video-list-count',
-      textContent: `${allVideos.length} 件`,
+  async function fetchAndRender(targetPage) {
+    clearChildren(content);
+    const loadingEl = createElement('p', {
+      className: 'video-list-loading',
+      textContent: '読み込み中...',
     });
-    controls.appendChild(countEl);
+    content.appendChild(loadingEl);
 
-    const sortControl = createSortControl(currentSort, (newSort) => {
-      currentSort = newSort;
-      currentPage = 1;
-      render();
-    });
-    controls.appendChild(sortControl);
+    try {
+      const result = await api.get(`/videos?page=${targetPage}&pageSize=${PAGE_SIZE}`);
+      const videos = result.items ?? [];
+      totalCount = result.totalCount ?? 0;
+      currentPage = result.page ?? targetPage;
+      const totalPages = result.totalPages ?? Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-    // コンテンツ再描画
-    while (content.firstChild) content.removeChild(content.firstChild);
-
-    if (allVideos.length === 0) {
-      content.appendChild(createEmptyState());
-      return;
-    }
-
-    const grid = createElement('div', { className: 'video-grid' });
-    pageVideos.forEach(video => {
-      const card = createVideoCard(video, () => navigateTo(`/videos/${video.id}`));
-      grid.appendChild(card);
-    });
-    content.appendChild(grid);
-
-    if (totalPages > 1) {
-      const pagination = createPagination(currentPage, totalPages, (newPage) => {
-        currentPage = newPage;
-        render();
-        page.scrollIntoView({ behavior: 'smooth' });
+      // コントロールバー更新
+      clearChildren(controls);
+      const countEl = createElement('span', {
+        className: 'video-list-count',
+        textContent: `${totalCount} 件`,
       });
-      content.appendChild(pagination);
+      controls.appendChild(countEl);
+
+      // コンテンツ描画
+      clearChildren(content);
+
+      if (videos.length === 0) {
+        content.appendChild(createEmptyState());
+        return;
+      }
+
+      const grid = createElement('div', { className: 'video-grid' });
+      videos.forEach(video => {
+        const card = createVideoCard(video, () => navigateTo(`/videos/${video.id}`));
+        grid.appendChild(card);
+      });
+      content.appendChild(grid);
+
+      if (totalPages > 1) {
+        const pagination = createPagination(currentPage, totalPages, (newPage) => {
+          fetchAndRender(newPage);
+          page.scrollIntoView({ behavior: 'smooth' });
+        });
+        content.appendChild(pagination);
+      }
+    } catch (_err) {
+      clearChildren(content);
+      const errEl = createElement('p', {
+        className: 'video-list-error',
+        textContent: 'データの取得に失敗しました。再読み込みしてください。',
+      });
+      content.appendChild(errEl);
     }
   }
 
-  // ローディング表示
-  const loadingEl = createElement('p', {
-    className: 'video-list-loading',
-    textContent: '読み込み中...',
-  });
-  content.appendChild(loadingEl);
-
-  // データ取得（大きな pageSize で全件取得し client-side でソート・ページング）
-  try {
-    const result = await api.get('/videos?page=1&pageSize=1000');
-    allVideos = result.items ?? [];
-  } catch (_err) {
-    while (content.firstChild) content.removeChild(content.firstChild);
-    const errEl = createElement('p', {
-      className: 'video-list-error',
-      textContent: 'データの取得に失敗しました。再読み込みしてください。',
-    });
-    content.appendChild(errEl);
-    return;
-  }
-
-  render();
+  await fetchAndRender(1);
 }

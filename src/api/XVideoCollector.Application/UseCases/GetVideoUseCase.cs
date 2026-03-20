@@ -1,13 +1,14 @@
 using XVideoCollector.Application.Dtos;
+using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Domain.Repositories;
 
 namespace XVideoCollector.Application.UseCases;
 
-public class GetVideoUseCase(
+public sealed class GetVideoUseCase(
     IVideoRepository videoRepository,
-    ITagRepository tagRepository)
+    ITagRepository tagRepository) : IGetVideoUseCase
 {
-    public virtual async Task<VideoDto?> ExecuteAsync(
+    public async Task<VideoDto?> ExecuteAsync(
         Guid videoId,
         CancellationToken cancellationToken = default)
     {

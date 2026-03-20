@@ -35,8 +35,8 @@ internal static class VideoMapper
             video.CreatedAt);
 
     internal static TagDto ToDto(Tag tag) =>
-        new(tag.Id, tag.Name, tag.Color, tag.CreatedAt);
+        new(tag.Id, tag.Name, tag.Color, tag.CreatedAt, tag.UpdatedAt);
 
     internal static CategoryDto ToDto(Category category) =>
-        new(category.Id, category.Name, category.SortOrder, category.CreatedAt);
+        new(category.Id, category.Name, category.SortOrder, category.CreatedAt, category.UpdatedAt);
 }

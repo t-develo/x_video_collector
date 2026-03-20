@@ -1,5 +1,7 @@
 // router.js — Hash ベースクライアントサイドルーター
 
+import { clearChildren } from './utils/dom.js';
+
 /** @type {Map<string, function(HTMLElement): void>} */
 const routes = new Map();
 
@@ -37,8 +39,9 @@ export function startRouter(container) {
     const path = getCurrentPath();
     const handler = routes.get(path);
 
+    clearChildren(container);
+
     if (handler) {
-      container.innerHTML = '';
       handler(container);
     } else {
       render404(container);
@@ -68,17 +71,15 @@ function updateActiveNavLinks(currentPath) {
  * @param {HTMLElement} container
  */
 function render404(container) {
-  container.innerHTML = '';
-
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'text-align:center;padding:4rem 2rem;';
+  wrapper.className = 'not-found-wrapper';
 
   const code = document.createElement('p');
-  code.style.cssText = 'font-family:var(--font-mono);font-size:4rem;color:var(--color-text-muted);';
+  code.className = 'not-found-code';
   code.textContent = '404';
 
   const msg = document.createElement('p');
-  msg.style.cssText = 'color:var(--color-text-secondary);margin-top:1rem;';
+  msg.className = 'not-found-message';
   msg.textContent = 'ページが見つかりません';
 
   wrapper.appendChild(code);

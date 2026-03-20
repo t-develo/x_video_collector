@@ -21,6 +21,28 @@ internal sealed class TagRepository(AppDbContext db) : ITagRepository
             .OrderBy(t => t.Name)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Tag>>> GetByVideoIdsAsync(
+        IReadOnlyList<Guid> videoIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (videoIds.Count == 0)
+            return new Dictionary<Guid, IReadOnlyList<Tag>>();
+
+        var rows = await (
+            from vt in db.VideoTags
+            join t in db.Tags on vt.TagId equals t.Id
+            where videoIds.Contains(vt.VideoId)
+            orderby t.Name
+            select new { vt.VideoId, Tag = t }
+        ).ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(r => r.VideoId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<Tag>)g.Select(r => r.Tag).ToList());
+    }
+
     public async Task AddAsync(Tag tag, CancellationToken cancellationToken = default)
     {
         await db.Tags.AddAsync(tag, cancellationToken);

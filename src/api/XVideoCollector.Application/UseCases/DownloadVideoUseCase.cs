@@ -1,16 +1,17 @@
+using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Application.Services;
 using XVideoCollector.Domain.Repositories;
 using XVideoCollector.Domain.ValueObjects;
 
 namespace XVideoCollector.Application.UseCases;
 
-public class DownloadVideoUseCase(
+public sealed class DownloadVideoUseCase(
     IVideoRepository videoRepository,
     IVideoDownloadService downloadService,
     IBlobStorageService blobStorageService,
-    IThumbnailService thumbnailService)
+    IThumbnailService thumbnailService) : IDownloadVideoUseCase
 {
-    public virtual async Task ExecuteAsync(
+    public async Task ExecuteAsync(
         Guid videoId,
         CancellationToken cancellationToken = default)
     {

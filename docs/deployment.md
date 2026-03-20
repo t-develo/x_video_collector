@@ -1,11 +1,51 @@
 # デプロイ手順書
 
+## クイックスタート（初回セットアップ）
+
+セクション 1〜3 の手順はすべて **`scripts/setup.sh`** で自動化されています。
+
+```bash
+# 前提条件: az / gh / curl / unzip / jq がインストール済みであること
+bash scripts/setup.sh
+```
+
+オプション:
+
+| オプション | 説明 | 例 |
+|-----------|------|----|
+| `--repo` | GitHub リポジトリ（省略時: git remote から自動取得） | `--repo owner/repo` |
+| `--location` | Azure リージョン（デフォルト: `japaneast`） | `--location eastus` |
+| `--skip-deploy` | Bicep デプロイを後で手動実行したい場合 | — |
+
+スクリプトが行うこと:
+
+1. Entra ID アプリ登録（SWA 認証用）
+2. GitHub OIDC サービスプリンシパル + Federated Credentials 設定
+3. GitHub Secrets 設定（`AZURE_*` + `SQL_ADMIN_PASSWORD`）
+4. `staticwebapp.config.json` にテナント ID を自動設定
+5. yt-dlp.exe / ffmpeg.exe ダウンロード（Windows 実行ファイル）
+6. 初回 Bicep インフラデプロイ
+7. Entra ID リダイレクト URI 登録
+
+スクリプト完了後:
+```bash
+# テナント ID を設定した staticwebapp.config.json をコミット
+git add src/frontend/staticwebapp.config.json
+git commit -m "chore: set tenant ID in SWA config"
+git push origin main  # → Deploy ワークフローが自動実行
+```
+
+> 手動で各ステップを実行したい場合は以下のセクションを参照してください。
+
+---
+
 ## 前提条件
 
 - Azure サブスクリプション
 - Azure CLI (`az`) がインストール済み
 - GitHub CLI (`gh`) がインストール済み
 - .NET 10 SDK がインストール済み
+- `jq`, `curl`, `unzip` がインストール済み
 
 ---
 

@@ -17,6 +17,10 @@ packages/
 local.settings.json
 .azure/
 
+# yt-dlp / ffmpeg binaries (Windows executables — not committed to repo)
+src/api/XVideoCollector.Functions/yt-dlp.exe
+src/api/XVideoCollector.Functions/ffmpeg.exe
+
 # Node.js / frontend
 node_modules/
 dist/

@@ -357,7 +357,6 @@
 
 /* ========== 保存ボタン ========== */
 
-/* 保存ボタン */
 .detail-save-btn {
   padding: var(--space-sm) var(--space-xl);
   background-color: var(--color-accent);

@@ -158,10 +158,11 @@ function renderDetailContent(page, video, allTags, allCategories) {
   if (video.blobPath) {
     const playerSection = createElement('section', { className: 'detail-player-section' });
 
-    const videoEl = document.createElement('video');
-    videoEl.className = 'detail-video-player';
-    videoEl.setAttribute('controls', 'controls');
-    videoEl.setAttribute('preload', 'metadata');
+    const videoEl = createElement('video', {
+      className: 'detail-video-player',
+      controls: 'controls',
+      preload: 'metadata',
+    });
 
     const playerStatus = createElement('p', {
       className: 'detail-player-status',
@@ -173,12 +174,15 @@ function renderDetailContent(page, video, allTags, allCategories) {
     page.appendChild(playerSection);
 
     // SAS URL を非同期で取得して video src を設定
-    api.get(`/videos/${video.id}/stream`).then(data => {
-      videoEl.src = data.streamUrl;
-      playerSection.removeChild(playerStatus);
-    }).catch(() => {
-      playerStatus.textContent = '動画の読み込みに失敗しました';
-    });
+    (async () => {
+      try {
+        const data = await api.get(`/videos/${video.id}/stream`);
+        videoEl.src = data.streamUrl;
+        playerSection.removeChild(playerStatus);
+      } catch {
+        playerStatus.textContent = '動画の読み込みに失敗しました';
+      }
+    })();
   }
 
   // 動画情報セクション

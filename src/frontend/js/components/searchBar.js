@@ -34,9 +34,7 @@ export function createSearchBar({ initialValue = '', onSearch }) {
   clearBtn.setAttribute('aria-label', 'クリア');
   clearBtn.hidden = initialValue === '';
 
-  const debouncedSearch = debounce((value) => {
-    onSearch(value);
-  }, DEBOUNCE_DELAY);
+  const debouncedSearch = debounce(onSearch, DEBOUNCE_DELAY);
 
   input.addEventListener('input', () => {
     const value = input.value;

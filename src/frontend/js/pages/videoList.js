@@ -180,7 +180,8 @@ export async function renderVideoListPage(container) {
   let currentKeyword = qp.get('q') ?? '';
   let currentStatus = qp.get('status') ?? null;
   let currentCategoryId = qp.get('categoryId') ?? null;
-  let currentTagIds = qp.get('tags') ? (qp.get('tags') ?? '').split(',').filter(Boolean) : [];
+  const tagsParam = qp.get('tags');
+  let currentTagIds = tagsParam ? tagsParam.split(',').filter(Boolean) : [];
   let currentSortKey = /** @type {SortKey} */ (qp.get('sort') ?? 'createdAt');
   let currentSortDir = /** @type {SortDir} */ (qp.get('dir') ?? 'desc');
 

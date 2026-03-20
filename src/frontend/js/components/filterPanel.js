@@ -1,6 +1,6 @@
 // components/filterPanel.js — フィルターパネルコンポーネント
 
-import { createElement, clearChildren } from '../utils/dom.js';
+import { createElement } from '../utils/dom.js';
 
 /** @typedef {{ tagIds: string[], categoryId: string|null, status: string|null }} FilterState */
 

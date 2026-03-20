@@ -59,7 +59,7 @@ export function getCurrentQueryParams() {
 }
 
 /**
- * 現在のパスにクエリパラメータを設定して遷移する（履歴を置き換え）
+ * 現在のパスにクエリパラメータを設定する（hashchange を発火させず履歴を置き換え）
  * @param {Record<string, string|null>} params - null の値はパラメータを削除する
  */
 export function setQueryParams(params) {
@@ -73,7 +73,10 @@ export function setQueryParams(params) {
   }
   const path = getCurrentPath();
   const queryStr = current.toString();
-  window.location.replace(`#${path}${queryStr ? `?${queryStr}` : ''}`);
+  // history.replaceState を使用して hashchange を発火させない。
+  // window.location.replace() は hashchange を発火させるため、
+  // ルーターが再レンダリングを行い fetchAndRender と競合する。
+  window.history.replaceState(null, '', `${window.location.pathname}#${path}${queryStr ? `?${queryStr}` : ''}`);
 }
 
 /**

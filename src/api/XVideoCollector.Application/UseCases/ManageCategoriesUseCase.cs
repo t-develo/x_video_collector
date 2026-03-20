@@ -1,19 +1,20 @@
 using XVideoCollector.Application.Dtos;
+using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Domain.Entities;
 using XVideoCollector.Domain.Repositories;
 
 namespace XVideoCollector.Application.UseCases;
 
-public class ManageCategoriesUseCase(ICategoryRepository categoryRepository)
+public sealed class ManageCategoriesUseCase(ICategoryRepository categoryRepository) : IManageCategoriesUseCase
 {
-    public virtual async Task<IReadOnlyList<CategoryDto>> GetAllAsync(
+    public async Task<IReadOnlyList<CategoryDto>> GetAllAsync(
         CancellationToken cancellationToken = default)
     {
         var categories = await categoryRepository.GetAllAsync(cancellationToken);
         return categories.Select(VideoMapper.ToDto).ToList();
     }
 
-    public virtual async Task<CategoryDto?> GetByIdAsync(
+    public async Task<CategoryDto?> GetByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
@@ -21,7 +22,7 @@ public class ManageCategoriesUseCase(ICategoryRepository categoryRepository)
         return category is null ? null : VideoMapper.ToDto(category);
     }
 
-    public virtual async Task<CategoryDto> CreateAsync(
+    public async Task<CategoryDto> CreateAsync(
         string name,
         int sortOrder = 0,
         CancellationToken cancellationToken = default)
@@ -31,7 +32,7 @@ public class ManageCategoriesUseCase(ICategoryRepository categoryRepository)
         return VideoMapper.ToDto(category);
     }
 
-    public virtual async Task<CategoryDto> UpdateAsync(
+    public async Task<CategoryDto> UpdateAsync(
         Guid id,
         string name,
         int sortOrder,
@@ -45,7 +46,7 @@ public class ManageCategoriesUseCase(ICategoryRepository categoryRepository)
         return VideoMapper.ToDto(category);
     }
 
-    public virtual async Task DeleteAsync(
+    public async Task DeleteAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {

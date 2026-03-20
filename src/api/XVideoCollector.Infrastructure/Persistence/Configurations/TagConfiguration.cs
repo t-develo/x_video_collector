@@ -28,6 +28,9 @@ internal sealed class TagConfiguration : IEntityTypeConfiguration<Tag>
         builder.Property(t => t.CreatedAt)
             .IsRequired();
 
+        builder.Property(t => t.UpdatedAt)
+            .IsRequired();
+
         builder.HasIndex(t => t.Name).IsUnique();
     }
 }

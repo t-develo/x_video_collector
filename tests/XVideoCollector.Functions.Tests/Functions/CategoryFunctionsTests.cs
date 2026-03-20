@@ -4,26 +4,19 @@ using Moq;
 using System.Text;
 using System.Text.Json;
 using XVideoCollector.Application.Dtos;
-using XVideoCollector.Application.UseCases;
-using XVideoCollector.Domain.Repositories;
+using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Functions.Functions;
 
 namespace XVideoCollector.Functions.Tests.Functions;
 
 public sealed class CategoryFunctionsTests
 {
-    private static readonly Mock<ICategoryRepository> CategoryRepo = new();
-
-    private static Mock<ManageCategoriesUseCase> DefaultMock() => new(CategoryRepo.Object);
-
-    private static CategoryFunctions CreateSut(Mock<ManageCategoriesUseCase>? manage = null) =>
-        new(manage?.Object ?? DefaultMock().Object);
-
     private static CategoryDto CreateCategoryDto(Guid? id = null) => new(
         Id: id ?? Guid.NewGuid(),
         Name: "TestCategory",
         SortOrder: 0,
-        CreatedAt: DateTimeOffset.UtcNow);
+        CreatedAt: DateTimeOffset.UtcNow,
+        UpdatedAt: DateTimeOffset.UtcNow);
 
     private static HttpRequest CreateRequest(string method = "GET", string? body = null)
     {
@@ -38,11 +31,14 @@ public sealed class CategoryFunctionsTests
         return context.Request;
     }
 
+    private static CategoryFunctions CreateSut(Mock<IManageCategoriesUseCase>? manage = null) =>
+        new(manage?.Object ?? new Mock<IManageCategoriesUseCase>().Object);
+
     [Fact]
     public async Task ListCategories_ReturnsOk()
     {
         var categories = new List<CategoryDto> { CreateCategoryDto() };
-        var mock = DefaultMock();
+        var mock = new Mock<IManageCategoriesUseCase>();
         mock.Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(categories);
 
@@ -58,7 +54,7 @@ public sealed class CategoryFunctionsTests
         var categoryDto = CreateCategoryDto();
         var body = JsonSerializer.Serialize(new { name = "NewCategory", sortOrder = 1 });
 
-        var mock = DefaultMock();
+        var mock = new Mock<IManageCategoriesUseCase>();
         mock.Setup(x => x.CreateAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(categoryDto);
 
@@ -84,7 +80,7 @@ public sealed class CategoryFunctionsTests
         var categoryDto = CreateCategoryDto(categoryId);
         var body = JsonSerializer.Serialize(new { name = "Updated", sortOrder = 2 });
 
-        var mock = DefaultMock();
+        var mock = new Mock<IManageCategoriesUseCase>();
         mock.Setup(x => x.UpdateAsync(categoryId, It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(categoryDto);
 
@@ -97,7 +93,7 @@ public sealed class CategoryFunctionsTests
     [Fact]
     public async Task DeleteCategory_ReturnsNoContent()
     {
-        var mock = DefaultMock();
+        var mock = new Mock<IManageCategoriesUseCase>();
         mock.Setup(x => x.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 

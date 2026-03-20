@@ -8,16 +8,18 @@ public sealed class Tag
     public string Name { get; private set; }
     public TagColor Color { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset UpdatedAt { get; private set; }
 
     // EF Core 用
     private Tag() { Id = default; Name = string.Empty; }
 
-    private Tag(Guid id, string name, TagColor color, DateTimeOffset createdAt)
+    private Tag(Guid id, string name, TagColor color, DateTimeOffset now)
     {
         Id = id;
         Name = name;
         Color = color;
-        CreatedAt = createdAt;
+        CreatedAt = now;
+        UpdatedAt = now;
     }
 
     public static Tag Create(string name, TagColor color)
@@ -33,5 +35,6 @@ public sealed class Tag
 
         Name = name.Trim();
         Color = color;
+        UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

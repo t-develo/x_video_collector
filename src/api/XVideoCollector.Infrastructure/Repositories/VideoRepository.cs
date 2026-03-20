@@ -15,6 +15,17 @@ internal sealed class VideoRepository(AppDbContext db) : IVideoRepository
             .OrderByDescending(v => v.CreatedAt)
             .ToListAsync(cancellationToken);
 
+    public async Task<(IReadOnlyList<Video> Videos, int TotalCount)> GetPagedAsync(
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var q = db.Videos.OrderByDescending(v => v.CreatedAt);
+        var totalCount = await q.CountAsync(cancellationToken);
+        var videos = await q.Skip(skip).Take(take).ToListAsync(cancellationToken);
+        return (videos, totalCount);
+    }
+
     public async Task<IReadOnlyList<Video>> SearchAsync(
         VideoSearchQuery query,
         CancellationToken cancellationToken = default)
@@ -22,7 +33,10 @@ internal sealed class VideoRepository(AppDbContext db) : IVideoRepository
         var q = db.Videos.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query.Keyword))
-            q = q.Where(v => EF.Functions.Like(v.Title.Value, $"%{query.Keyword}%"));
+        {
+            var escaped = query.Keyword.Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]");
+            q = q.Where(v => EF.Functions.Like(v.Title.Value, $"%{escaped}%"));
+        }
 
         if (query.Status.HasValue)
             q = q.Where(v => v.Status == query.Status.Value);
@@ -40,6 +54,41 @@ internal sealed class VideoRepository(AppDbContext db) : IVideoRepository
         }
 
         return await q.OrderByDescending(v => v.CreatedAt).ToListAsync(cancellationToken);
+    }
+
+    public async Task<(IReadOnlyList<Video> Videos, int TotalCount)> SearchPagedAsync(
+        VideoSearchQuery query,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var q = db.Videos.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(query.Keyword))
+        {
+            var escaped = query.Keyword.Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]");
+            q = q.Where(v => EF.Functions.Like(v.Title.Value, $"%{escaped}%"));
+        }
+
+        if (query.Status.HasValue)
+            q = q.Where(v => v.Status == query.Status.Value);
+
+        if (query.CategoryId.HasValue)
+            q = q.Where(v => v.CategoryId == query.CategoryId.Value);
+
+        if (query.TagIds is { Count: > 0 })
+        {
+            var tagIds = query.TagIds;
+            q = q.Where(v =>
+                db.VideoTags
+                    .Where(vt => vt.VideoId == v.Id)
+                    .Any(vt => tagIds.Contains(vt.TagId)));
+        }
+
+        q = q.OrderByDescending(v => v.CreatedAt);
+        var totalCount = await q.CountAsync(cancellationToken);
+        var videos = await q.Skip(skip).Take(take).ToListAsync(cancellationToken);
+        return (videos, totalCount);
     }
 
     public async Task AddAsync(Video video, CancellationToken cancellationToken = default)

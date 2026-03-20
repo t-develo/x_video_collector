@@ -1,13 +1,14 @@
 using XVideoCollector.Application.Dtos;
+using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Domain.Repositories;
 
 namespace XVideoCollector.Application.UseCases;
 
-public class ListVideosUseCase(
+public sealed class ListVideosUseCase(
     IVideoRepository videoRepository,
-    ITagRepository tagRepository)
+    ITagRepository tagRepository) : IListVideosUseCase
 {
-    public virtual async Task<PaginatedResult<VideoListItemDto>> ExecuteAsync(
+    public async Task<PaginatedResult<VideoListItemDto>> ExecuteAsync(
         int page = 1,
         int pageSize = 20,
         CancellationToken cancellationToken = default)
@@ -15,22 +16,19 @@ public class ListVideosUseCase(
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 20;
 
-        var allVideos = await videoRepository.GetAllAsync(cancellationToken);
-        var totalCount = allVideos.Count;
+        var skip = (page - 1) * pageSize;
+        var (videos, totalCount) = await videoRepository.GetPagedAsync(skip, pageSize, cancellationToken);
 
-        var paged = allVideos
-            .OrderByDescending(v => v.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
+        var videoIds = videos.Select(v => v.Id).ToList();
+        var tagsByVideoId = await tagRepository.GetByVideoIdsAsync(videoIds, cancellationToken);
 
-        var items = new List<VideoListItemDto>(paged.Count);
-        foreach (var video in paged)
+        var items = videos.Select(video =>
         {
-            var tags = await tagRepository.GetByVideoIdAsync(video.Id, cancellationToken);
-            var tagDtos = tags.Select(VideoMapper.ToDto).ToList();
-            items.Add(VideoMapper.ToListItemDto(video, tagDtos));
-        }
+            var tagDtos = tagsByVideoId.TryGetValue(video.Id, out var tags)
+                ? tags.Select(VideoMapper.ToDto).ToList()
+                : [];
+            return VideoMapper.ToListItemDto(video, tagDtos);
+        }).ToList();
 
         return new PaginatedResult<VideoListItemDto>(items, totalCount, page, pageSize);
     }

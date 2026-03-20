@@ -37,6 +37,9 @@ public sealed class UpdateVideoUseCaseTests
         _tagRepoMock
             .Setup(r => r.GetByVideoIdAsync(video.Id, default))
             .ReturnsAsync([]);
+        _videoTagRepoMock
+            .Setup(r => r.SyncByVideoIdAsync(video.Id, It.IsAny<IReadOnlyList<Guid>>(), default))
+            .Returns(Task.CompletedTask);
 
         var request = new UpdateVideoRequest(video.Id, "New Title", categoryId, [tagId]);
         var result = await _sut.ExecuteAsync(request);
@@ -44,9 +47,8 @@ public sealed class UpdateVideoUseCaseTests
         Assert.Equal("New Title", result.Title);
         Assert.Equal(categoryId, result.CategoryId);
         _videoTagRepoMock.Verify(
-            r => r.DeleteByVideoIdAsync(video.Id, default), Times.Once);
-        _videoTagRepoMock.Verify(
-            r => r.AddAsync(It.Is<VideoTag>(vt => vt.TagId == tagId), default), Times.Once);
+            r => r.SyncByVideoIdAsync(video.Id, It.Is<IReadOnlyList<Guid>>(ids => ids.Contains(tagId)), default),
+            Times.Once);
         _videoRepoMock.Verify(r => r.UpdateAsync(video, default), Times.Once);
     }
 

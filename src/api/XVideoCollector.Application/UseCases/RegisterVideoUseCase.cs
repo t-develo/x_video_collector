@@ -1,14 +1,15 @@
 using XVideoCollector.Application.Dtos;
+using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Domain.Entities;
 using XVideoCollector.Domain.Repositories;
 using XVideoCollector.Domain.ValueObjects;
 
 namespace XVideoCollector.Application.UseCases;
 
-public class RegisterVideoUseCase(
-    IVideoRepository videoRepository)
+public sealed class RegisterVideoUseCase(
+    IVideoRepository videoRepository) : IRegisterVideoUseCase
 {
-    public virtual async Task<VideoDto> ExecuteAsync(
+    public async Task<VideoDto> ExecuteAsync(
         RegisterVideoRequest request,
         CancellationToken cancellationToken = default)
     {

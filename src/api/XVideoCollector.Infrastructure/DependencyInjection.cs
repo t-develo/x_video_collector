@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using XVideoCollector.Application;
 using XVideoCollector.Application.Services;
 using XVideoCollector.Domain.Repositories;
 using XVideoCollector.Infrastructure.Options;
@@ -34,6 +35,7 @@ public static class DependencyInjection
         services.Configure<YtDlpOptions>(
             configuration.GetSection(YtDlpOptions.SectionName));
 
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IVideoRepository, VideoRepository>();
         services.AddScoped<ITagRepository, TagRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();

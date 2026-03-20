@@ -1,0 +1,88 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write   # OIDC token for Azure Login
+  contents: read
+
+jobs:
+  infra:
+    name: Deploy Infrastructure (Bicep)
+    runs-on: ubuntu-latest
+    outputs:
+      functionsAppName: ${{ steps.bicep.outputs.functionsAppName }}
+      staticWebAppName: ${{ steps.bicep.outputs.staticWebAppName }}
+      staticWebAppApiKey: ${{ steps.bicep.outputs.staticWebAppApiKey }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Bicep
+        id: bicep
+        uses: azure/arm-deploy@v2
+        with:
+          scope: subscription
+          region: ${{ vars.AZURE_LOCATION || 'japaneast' }}
+          template: infra/main.bicep
+          parameters: >
+            infra/parameters.json
+            sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}
+          deploymentName: xvc-deploy-${{ github.run_number }}
+
+  deploy-functions:
+    name: Deploy Azure Functions
+    runs-on: ubuntu-latest
+    needs: infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish Azure Functions
+        run: |
+          dotnet publish src/api/XVideoCollector.Functions/XVideoCollector.Functions.csproj \
+            -c Release \
+            -o ./publish/functions
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure Functions
+        uses: azure/functions-action@v1
+        with:
+          app-name: ${{ needs.infra.outputs.functionsAppName }}
+          package: publish/functions
+
+  deploy-frontend:
+    name: Deploy Static Web Apps
+    runs-on: ubuntu-latest
+    needs: infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Azure Static Web Apps
+        uses: azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ needs.infra.outputs.staticWebAppApiKey }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: src/frontend
+          output_location: ''
+          skip_api_build: true

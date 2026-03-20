@@ -29,4 +29,15 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <!-- yt-dlp / ffmpeg binaries (Windows executables for Azure Functions Consumption Plan) -->
+  <!-- Place yt-dlp.exe and ffmpeg.exe in this directory before publishing. See docs/deployment.md. -->
+  <ItemGroup>
+    <None Update="yt-dlp.exe" Condition="Exists('yt-dlp.exe')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="ffmpeg.exe" Condition="Exists('ffmpeg.exe')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

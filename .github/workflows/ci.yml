@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - 'feature/sprint**'
+      - 'claude/**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  dotnet-test:
+    name: .NET Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore src/api/XVideoCollector.Domain/XVideoCollector.Domain.csproj
+          && dotnet restore src/api/XVideoCollector.Application/XVideoCollector.Application.csproj
+          && dotnet restore src/api/XVideoCollector.Infrastructure/XVideoCollector.Infrastructure.csproj
+          && dotnet restore src/api/XVideoCollector.Functions/XVideoCollector.Functions.csproj
+          && dotnet restore tests/XVideoCollector.Domain.Tests/XVideoCollector.Domain.Tests.csproj
+          && dotnet restore tests/XVideoCollector.Application.Tests/XVideoCollector.Application.Tests.csproj
+          && dotnet restore tests/XVideoCollector.Infrastructure.Tests/XVideoCollector.Infrastructure.Tests.csproj
+          && dotnet restore tests/XVideoCollector.Functions.Tests/XVideoCollector.Functions.Tests.csproj
+
+      - name: Build
+        run: |
+          dotnet build src/api/XVideoCollector.Domain/XVideoCollector.Domain.csproj --no-restore -c Release
+          dotnet build src/api/XVideoCollector.Application/XVideoCollector.Application.csproj --no-restore -c Release
+          dotnet build src/api/XVideoCollector.Infrastructure/XVideoCollector.Infrastructure.csproj --no-restore -c Release
+          dotnet build src/api/XVideoCollector.Functions/XVideoCollector.Functions.csproj --no-restore -c Release
+
+      - name: Test
+        run: |
+          dotnet test tests/XVideoCollector.Domain.Tests/XVideoCollector.Domain.Tests.csproj --no-restore -c Release --logger trx --results-directory TestResults
+          dotnet test tests/XVideoCollector.Application.Tests/XVideoCollector.Application.Tests.csproj --no-restore -c Release --logger trx --results-directory TestResults
+          dotnet test tests/XVideoCollector.Infrastructure.Tests/XVideoCollector.Infrastructure.Tests.csproj --no-restore -c Release --logger trx --results-directory TestResults
+          dotnet test tests/XVideoCollector.Functions.Tests/XVideoCollector.Functions.Tests.csproj --no-restore -c Release --logger trx --results-directory TestResults
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dotnet-test-results
+          path: TestResults/**/*.trx
+
+  js-test:
+    name: JS Test (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Vitest
+        run: npm test
+
+  build-functions:
+    name: Build & Publish Functions
+    runs-on: ubuntu-latest
+    needs: dotnet-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish Azure Functions
+        run: |
+          dotnet publish src/api/XVideoCollector.Functions/XVideoCollector.Functions.csproj \
+            -c Release \
+            -o ./publish/functions \
+            --no-restore
+
+      - name: Upload Functions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: functions-publish
+          path: publish/functions/**
+          retention-days: 7

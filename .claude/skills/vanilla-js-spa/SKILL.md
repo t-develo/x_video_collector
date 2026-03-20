@@ -52,10 +52,10 @@ src/frontend/
 // pages/register.js
 
 import { postVideo } from '../api.js';
-import { createElement } from '../utils/dom.js';
+import { createElement, clearChildren } from '../utils/dom.js';
 
 export function renderRegisterPage(container) {
-  container.innerHTML = '';
+  clearChildren(container);  // innerHTML = '' は禁止。clearChildren() を使う
 
   const form = createRegisterForm();
   container.appendChild(form);
@@ -70,17 +70,23 @@ function createRegisterForm() {
 
 ### DOM 操作ルール（厳守）
 
-- `innerHTML` の使用禁止（XSS 防止）
+- `innerHTML` の使用は一切禁止（XSS 防止）。`innerHTML = ''` による要素クリアも禁止
+  - 要素のクリアには `clearChildren(container)` を使用する（`utils/dom.js` 提供）
 - `document.createElement` + `textContent` で DOM を構築
 - ユーザー入力値は必ず `textContent` または `setAttribute` 経由で設定
+- インラインスタイル（`el.style.cssText`, `el.style.xxx`）を使わず、CSS ファイルにクラスとして定義する
 
 ```javascript
 // ✅ 正しい
+import { clearChildren } from '../utils/dom.js';
+clearChildren(container);
 const el = document.createElement('span');
 el.textContent = userInput;
 
 // ❌ 禁止
+container.innerHTML = '';
 el.innerHTML = userInput;
+el.style.cssText = 'color: red; font-size: 2rem;';
 ```
 
 ### DOM ヘルパー（utils/dom.js）
@@ -150,6 +156,32 @@ export function startRouter(container) {
 
   window.addEventListener('hashchange', handleRoute);
   handleRoute();
+}
+```
+
+### 非同期処理ルール（厳守）
+
+- すべての非同期処理は `async`/`await` を使用する。`.then()` チェーンは禁止
+- データ取得はサーバーサイドページングを活用し、全件取得（`pageSize=1000` 等）を避ける
+
+```javascript
+// ✅ 正しい
+async function loadUserInfo() {
+  try {
+    const response = await fetch('/.auth/me');
+    const data = await response.json();
+    // ...
+  } catch {
+    // エラーハンドリング
+  }
+}
+
+// ❌ 禁止
+function loadUserInfo() {
+  fetch('/.auth/me')
+    .then(r => r.json())
+    .then(data => { /* ... */ })
+    .catch(() => {});
 }
 ```
 

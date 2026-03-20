@@ -4,17 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>X Video Collector</title>
-  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/css/variables.css" />
+  <link rel="stylesheet" href="/css/reset.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/components/header.css" />
+  <link rel="stylesheet" href="/css/components/spinner.css" />
+  <link rel="stylesheet" href="/css/components/toast.css" />
 </head>
 <body>
   <div id="app">
-    <header id="site-header">
-      <h1>X Video Collector</h1>
-      <nav id="main-nav"></nav>
-    </header>
+    <header id="site-header"></header>
     <main id="main-content"></main>
-    <footer id="site-footer"></footer>
+    <div id="toast-container" aria-live="polite"></div>
   </div>
-  <script type="module" src="/js/main.js"></script>
+  <script type="module" src="/js/app.js"></script>
 </body>
 </html>

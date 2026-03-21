@@ -275,13 +275,13 @@ func start
 
 ## ドキュメント
 
-| ドキュメント | 内容 |
-|-------------|------|
-| [CLAUDE.md](CLAUDE.md) | プロジェクトルール・コーディング規約 |
-| [docs/code-review.md](docs/code-review.md) | コードベースレビュー報告書 |
-| [docs/deployment.md](docs/deployment.md) | デプロイ手順書 |
-| [docs/improvement-proposal.md](docs/improvement-proposal.md) | 改善提案書 |
-| [docs/sprints/](docs/sprints/) | Sprint 0〜14 計画書 |
+| ドキュメント | 内容 | 関連 |
+|-------------|------|------|
+| [CLAUDE.md](CLAUDE.md) | プロジェクトルール・コーディング規約 | — |
+| [docs/code-review.md](docs/code-review.md) | コードベースレビュー報告書（CRITICAL 3 / HIGH 5 / MEDIUM 8 / LOW 7） | → [改善提案書](docs/improvement-proposal.md) |
+| [docs/improvement-proposal.md](docs/improvement-proposal.md) | 改善提案書（Sprint 15〜20） | ← [レビュー報告書](docs/code-review.md) |
+| [docs/deployment.md](docs/deployment.md) | デプロイ手順書 | — |
+| [docs/sprints/](docs/sprints/) | Sprint 0〜14 計画書 | — |
 
 ## ライセンス
 

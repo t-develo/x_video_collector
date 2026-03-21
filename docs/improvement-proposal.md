@@ -18,10 +18,10 @@ Sprint 0〜14 で基盤機能は概ね完成。本提案書では、コードレ
 
 ### 15.1 Queue Trigger による動画ダウンロード非同期化
 
-**優先度:** CRITICAL | **工数目安:** 大
+**優先度:** CRITICAL | **工数目安:** 大 | **関連レビュー:** [1.1 Fire-and-forget](code-review.md#11-fire-and-forget-による動画ダウンロード実行)
 
 **現状の問題:**
-- `VideoFunctions.RegisterVideo` 内で `Task.Run` による fire-and-forget でダウンロード処理を実行
+- [`VideoFunctions.cs:36`](../src/api/XVideoCollector.Functions/Functions/VideoFunctions.cs#L36) で `Task.Run` による fire-and-forget でダウンロード処理を実行
 - Azure Functions Consumption Plan ではホストプロセス回収によりダウンロードが中断される可能性
 - 例外が握りつぶされ、失敗を検知できない
 
@@ -33,19 +33,19 @@ Sprint 0〜14 で基盤機能は概ね完成。本提案書では、コードレ
 5. Poison Queue での失敗通知メカニズム追加
 
 **影響範囲:**
-- `VideoFunctions.cs` — `Task.Run` 削除、Queue メッセージ発行追加
+- [`VideoFunctions.cs`](../src/api/XVideoCollector.Functions/Functions/VideoFunctions.cs) — `Task.Run` 削除、Queue メッセージ発行追加
 - 新規 `DownloadVideoQueueFunction.cs` 作成
-- `host.json` — Queue 設定追加
-- `infra/modules/storage.bicep` — Queue リソース追加
+- [`host.json`](../src/api/XVideoCollector.Functions/host.json) — Queue 設定追加
+- [`infra/modules/storage.bicep`](../infra/modules/storage.bicep) — Queue リソース追加
 - フロントエンド — 登録後のポーリングまたは状態表示改善
 
 ### 15.2 IUnitOfWork パターンの実活用
 
-**優先度:** CRITICAL | **工数目安:** 中
+**優先度:** CRITICAL | **工数目安:** 中 | **関連レビュー:** [1.2 IUnitOfWork 未活用](code-review.md#12-iunitofwork-パターンの未活用repository-内での-savechangesasync-直接呼び出し)
 
 **現状の問題:**
 - `IUnitOfWork` は定義・DI 登録済みだが、どの UseCase からも呼び出されていない
-- 全 Repository が `SaveChangesAsync` を内部で個別に呼び出している
+- 全 Repository が `SaveChangesAsync` を内部で個別に呼び出している（[詳細行番号](code-review.md#12-iunitofwork-パターンの未活用repository-内での-savechangesasync-直接呼び出し)）
 - 複数リポジトリにまたがる操作（Update, Delete）がトランザクション保護されない
 
 **改善内容:**
@@ -55,16 +55,16 @@ Sprint 0〜14 で基盤機能は概ね完成。本提案書では、コードレ
 4. テストを更新して `IUnitOfWork.SaveChangesAsync` の呼び出しを検証
 
 **影響範囲:**
-- 全 Repository 実装（4ファイル）
+- 全 Repository 実装（4ファイル）— [`VideoRepository.cs`](../src/api/XVideoCollector.Infrastructure/Repositories/VideoRepository.cs), [`TagRepository.cs`](../src/api/XVideoCollector.Infrastructure/Repositories/TagRepository.cs), [`CategoryRepository.cs`](../src/api/XVideoCollector.Infrastructure/Repositories/CategoryRepository.cs), [`VideoTagRepository.cs`](../src/api/XVideoCollector.Infrastructure/Repositories/VideoTagRepository.cs)
 - 全 UseCase 実装（9ファイル）
 - 全 UseCase テスト
 
 ### 15.3 シークレット管理の Key Vault 移行
 
-**優先度:** CRITICAL | **工数目安:** 中
+**優先度:** CRITICAL | **工数目安:** 中 | **関連レビュー:** [1.3 SQL パスワード露出](code-review.md#13-sql-パスワードの-bicep-出力への露出)
 
 **現状の問題:**
-- SQL 接続文字列（パスワード含む）が Bicep 出力 → Functions App 設定に平文で保存
+- SQL 接続文字列（パスワード含む）が Bicep 出力 → Functions App 設定に平文で保存（[`functions.bicep:64`](../infra/modules/functions.bicep#L64)）
 - Storage 接続文字列も同様
 - ARM デプロイ履歴にシークレットが記録される
 
@@ -76,10 +76,10 @@ Sprint 0〜14 で基盤機能は概ね完成。本提案書では、コードレ
 5. Bicep 出力からシークレットを含む値を削除
 
 **影響範囲:**
-- `infra/main.bicep` — Key Vault モジュール追加
+- [`infra/main.bicep`](../infra/main.bicep) — Key Vault モジュール追加
 - 新規 `infra/modules/keyvault.bicep`
-- `infra/modules/functions.bicep` — Key Vault 参照に変更
-- `infra/modules/sql.bicep` — 出力からパスワード削除
+- [`infra/modules/functions.bicep`](../infra/modules/functions.bicep) — Key Vault 参照に変更
+- [`infra/modules/sql.bicep`](../infra/modules/sql.bicep) — 出力からパスワード削除
 
 ---
 
@@ -89,55 +89,57 @@ Sprint 0〜14 で基盤機能は概ね完成。本提案書では、コードレ
 
 ### 16.1 Functions 直接アクセス防御
 
-**優先度:** HIGH | **工数目安:** 小
+**優先度:** HIGH | **工数目安:** 小 | **関連レビュー:** [2.1 認証防御なし](code-review.md#21-functions-アプリへの直接アクセスに対する認証防御なし)
 
 **改善内容:**
 1. ミドルウェアで `X-MS-CLIENT-PRINCIPAL` ヘッダーを検証
 2. ヘッダーがない場合は 401 Unauthorized を返す
 3. 開発環境（ローカル）では検証をスキップするオプション追加
 
+**修正対象:** 全 HTTP Trigger 関数（[VideoFunctions.cs](../src/api/XVideoCollector.Functions/Functions/VideoFunctions.cs), [TagFunctions.cs](../src/api/XVideoCollector.Functions/Functions/TagFunctions.cs), [CategoryFunctions.cs](../src/api/XVideoCollector.Functions/Functions/CategoryFunctions.cs)）
+
 ### 16.2 入力バリデーション強化
 
-**優先度:** MEDIUM | **工数目安:** 小
+**優先度:** MEDIUM | **工数目安:** 小 | **関連レビュー:** [3.2 pageSize 上限なし](code-review.md#32-pagesize-の上限チェックなし), [4.1 Name バリデーション不足](code-review.md#41-tag--category-の-name-にバリデーション不足), [4.2 Category 一意制約なし](code-review.md#42-categoryname-に一意制約なし), [4.3 外部キー制約なし](code-review.md#43-videotagconfiguration-に外部キー制約なし)
 
 **改善内容:**
-1. `pageSize` の上限設定（最大 100）
-2. Tag / Category の Name に最大長チェック追加（100文字）
-3. Category の Name に一意制約追加（DB レベル）
-4. VideoTag に外部キー制約追加
+1. `pageSize` の上限設定（最大 100）— [`ListVideosUseCase.cs:17`](../src/api/XVideoCollector.Application/UseCases/ListVideosUseCase.cs#L17), [`SearchVideosUseCase.cs:24`](../src/api/XVideoCollector.Application/UseCases/SearchVideosUseCase.cs#L24)
+2. Tag / Category の Name に最大長チェック追加（100文字）— [`Tag.cs:27`](../src/api/XVideoCollector.Domain/Entities/Tag.cs#L27)
+3. Category の Name に一意制約追加（DB レベル）— [`CategoryConfiguration.cs:17`](../src/api/XVideoCollector.Infrastructure/Persistence/Configurations/CategoryConfiguration.cs#L17)
+4. VideoTag に外部キー制約追加 — [`VideoTagConfiguration.cs:14`](../src/api/XVideoCollector.Infrastructure/Persistence/Configurations/VideoTagConfiguration.cs#L14)
 
 ### 16.3 例外処理の改善
 
-**優先度:** MEDIUM | **工数目安:** 小
+**優先度:** MEDIUM | **工数目安:** 小 | **関連レビュー:** [3.1 文字列ベース例外分類](code-review.md#31-exceptionmiddleware-の文字列ベース例外分類)
 
 **改善内容:**
 1. `NotFoundException` カスタム例外クラスの作成
 2. UseCase で `InvalidOperationException` の代わりに `NotFoundException` を使用
-3. `ExceptionMiddleware` で文字列マッチングではなく型ベースのパターンマッチに変更
+3. [`ExceptionMiddleware.cs:41`](../src/api/XVideoCollector.Functions/Middleware/ExceptionMiddleware.cs#L41) で文字列マッチングではなく型ベースのパターンマッチに変更
 
 ---
 
 ## Sprint 17: テスト品質向上
 
-**目的:** テストカバレッジを拡充し、品質を保証する仕組みを強化する
+**目的:** テストカバレッジを拡充し、品質を保証する仕組みを強化する | **関連レビュー:** [6. テスト品質評価](code-review.md#6-テスト品質評価)
 
 ### 17.1 不足テストの追加
 
 **優先度:** HIGH | **工数目安:** 中
 
-**追加すべきテスト:**
+**追加すべきテスト:**（[カバレッジギャップ一覧](code-review.md#カバレッジギャップ)）
 
-| テスト対象 | テスト内容 |
-|-----------|-----------|
-| Category エンティティ | Create, Update のバリデーション・状態変更テスト |
-| GetVideoUseCase | 正常系、Video 未検出時、タグ付き取得 |
-| DownloadVideoUseCase | 正常系（状態遷移）、ダウンロード失敗、タイムアウト |
-| BlobStorageService | Upload, Download, SAS URL 生成、Delete |
-| TagRepository | CRUD 操作、GetByVideoIdsAsync のバッチ取得 |
-| VideoTagRepository | Sync 操作、Delete 操作 |
-| UpdateVideoUseCase | 空タイトル、無効タグ ID、タグ全削除 |
-| DeleteVideoUseCase | BlobPath ありの動画削除時の Blob クリーンアップ |
-| UpdatedAt 監査プロパティ | 状態変更時の UpdatedAt 更新検証 |
+| テスト対象 | テスト内容 | 対象ファイル |
+|-----------|-----------|------------|
+| Category エンティティ | Create, Update のバリデーション・状態変更テスト | [`Category.cs`](../src/api/XVideoCollector.Domain/Entities/Category.cs) |
+| GetVideoUseCase | 正常系、Video 未検出時、タグ付き取得 | [`GetVideoUseCase.cs`](../src/api/XVideoCollector.Application/UseCases/GetVideoUseCase.cs) |
+| DownloadVideoUseCase | 正常系（状態遷移）、ダウンロード失敗、タイムアウト | [`DownloadVideoUseCase.cs`](../src/api/XVideoCollector.Application/UseCases/DownloadVideoUseCase.cs) |
+| BlobStorageService | Upload, Download, SAS URL 生成、Delete | [`BlobStorageService.cs`](../src/api/XVideoCollector.Infrastructure/Services/BlobStorageService.cs) |
+| TagRepository | CRUD 操作、GetByVideoIdsAsync のバッチ取得 | [`TagRepository.cs`](../src/api/XVideoCollector.Infrastructure/Repositories/TagRepository.cs) |
+| VideoTagRepository | Sync 操作、Delete 操作 | [`VideoTagRepository.cs`](../src/api/XVideoCollector.Infrastructure/Repositories/VideoTagRepository.cs) |
+| UpdateVideoUseCase | 空タイトル、無効タグ ID、タグ全削除 | [`UpdateVideoUseCase.cs`](../src/api/XVideoCollector.Application/UseCases/UpdateVideoUseCase.cs) |
+| DeleteVideoUseCase | BlobPath ありの動画削除時の Blob クリーンアップ | [`DeleteVideoUseCase.cs`](../src/api/XVideoCollector.Application/UseCases/DeleteVideoUseCase.cs) |
+| UpdatedAt 監査プロパティ | 状態変更時の UpdatedAt 更新検証 | [`Video.cs`](../src/api/XVideoCollector.Domain/Entities/Video.cs) |
 
 ### 17.2 統合テスト基盤の整備
 
@@ -165,20 +167,20 @@ Sprint 0〜14 で基盤機能は概ね完成。本提案書では、コードレ
 
 ### 18.1 Bicep の修正
 
-**優先度:** HIGH | **工数目安:** 小
+**優先度:** HIGH | **工数目安:** 小 | **関連レビュー:** [2.2 .NET バージョン不一致](code-review.md#22-bicep-の-net-バージョン不一致), [2.4 テナント ID](code-review.md#24-staticwebappconfigjson-のテナント-id-プレースホルダー), [3.3 NuGet ワイルドカード](code-review.md#33-nuget-パッケージのワイルドカードバージョン指定)
 
 **改善内容:**
-1. `functions.bicep` の `netFrameworkVersion` を `v10.0` に修正
-2. NuGet パッケージのワイルドカードバージョンをピン留め
+1. [`functions.bicep:33`](../infra/modules/functions.bicep#L33) の `netFrameworkVersion` を `v10.0` に修正
+2. [`Functions.csproj:12-14`](../src/api/XVideoCollector.Functions/XVideoCollector.Functions.csproj#L12) の NuGet ワイルドカードバージョンをピン留め
 3. `appinsights.bicep` の未使用 `instrumentationKey` 出力を削除
-4. Static Web Apps の `__TENANT_ID__` をデプロイパイプラインで自動置換
+4. [`staticwebapp.config.json:27`](../src/frontend/staticwebapp.config.json#L27) の `__TENANT_ID__` をデプロイパイプラインで自動置換
 
 ### 18.2 CI パイプライン修正
 
-**優先度:** HIGH | **工数目安:** 小
+**優先度:** HIGH | **工数目安:** 小 | **関連レビュー:** [2.3 CI の --no-restore 問題](code-review.md#23-ci-の-build-functions-ジョブで---no-restore-使用)
 
 **改善内容:**
-1. `build-functions` ジョブに `dotnet restore` ステップを追加（`--no-restore` 問題の解消）
+1. [`ci.yml:91`](../.github/workflows/ci.yml#L91) — `build-functions` ジョブに `dotnet restore` ステップを追加（`--no-restore` 問題の解消）
 2. ソリューションレベルでの restore/build に簡素化
 3. Deploy ワークフローに CI 成功の前提条件を追加（`workflow_run` またはブランチ保護ルール）
 4. `host.json` の `Host.Aggregator` ログレベルを `Information` に変更
@@ -191,7 +193,7 @@ Sprint 0〜14 で基盤機能は概ね完成。本提案書では、コードレ
 1. Functions App に System-Assigned Managed Identity を有効化
 2. Blob Storage への Managed Identity + RBAC アクセスに切り替え
 3. SQL Database への Managed Identity 認証に切り替え（接続文字列からパスワード排除）
-4. `BlobStorageService` を `DefaultAzureCredential` ベースに変更
+4. [`BlobStorageService.cs`](../src/api/XVideoCollector.Infrastructure/Services/BlobStorageService.cs) を `DefaultAzureCredential` ベースに変更
 
 ---
 
@@ -201,9 +203,9 @@ Sprint 0〜14 で基盤機能は概ね完成。本提案書では、コードレ
 
 ### 19.1 動画再生時間の取得
 
-**優先度:** MEDIUM | **工数目安:** 小
+**優先度:** MEDIUM | **工数目安:** 小 | **関連レビュー:** [3.5 DurationSeconds が常に 0](code-review.md#35-durationseconds-が常に-0)
 
-**現状:** `DurationSeconds` が常に 0 で、フロントエンドに "00:00" と表示される
+**現状:** [`YtDlpDownloadService.cs:179`](../src/api/XVideoCollector.Infrastructure/Services/YtDlpDownloadService.cs#L179) で `DurationSeconds: 0` がハードコードされ、フロントエンドに "00:00" と表示される
 
 **改善内容:**
 1. ダウンロード後に ffprobe で動画の再生時間を取得
@@ -212,29 +214,29 @@ Sprint 0〜14 で基盤機能は概ね完成。本提案書では、コードレ
 
 ### 19.2 コンテンツタイプの動的判定
 
-**優先度:** LOW | **工数目安:** 小
+**優先度:** LOW | **工数目安:** 小 | **関連レビュー:** [3.6 コンテンツタイプのハードコード](code-review.md#36-コンテンツタイプのハードコード)
 
 **改善内容:**
 1. ダウンロードされたファイルの拡張子からコンテンツタイプを判定
-2. `BlobStorageService.UploadVideoAsync` にコンテンツタイプパラメータを追加
+2. [`BlobStorageService.cs:24,30`](../src/api/XVideoCollector.Infrastructure/Services/BlobStorageService.cs#L24) の `UploadVideoAsync` にコンテンツタイプパラメータを追加
 
 ### 19.3 フロントエンド改善
 
-**優先度:** MEDIUM | **工数目安:** 中
+**優先度:** MEDIUM | **工数目安:** 中 | **関連レビュー:** [4.6 tagIds/tags 不一致](code-review.md#46-フロントエンドの-tagidstags-パラメータ名不一致), [4.7 レースコンディション](code-review.md#47-フロントエンドのレースコンディション)
 
 **改善内容:**
-1. AbortController によるリクエストキャンセル（レースコンディション防止）
+1. [`videoList.js`](../src/frontend/js/pages/videoList.js) に AbortController によるリクエストキャンセル（レースコンディション防止）
 2. フィルタ変更のデバウンス（連続 API 呼び出し防止）
 3. `confirm()` をカスタムモーダルに置き換え（UX 統一）
 4. 動画詳細ページのモーダルにフォーカストラップ追加（アクセシビリティ）
-5. tagIds/tags クエリパラメータ名の統一
+5. tagIds/tags クエリパラメータ名の統一（L164, L184, L285）
 
 ### 19.4 JSON シリアライズ設定の一元管理
 
-**優先度:** LOW | **工数目安:** 小
+**優先度:** LOW | **工数目安:** 小 | **関連レビュー:** [3.4 JSON 二重管理](code-review.md#34-json-シリアライズ設定の二重管理)
 
 **改善内容:**
-1. `FunctionHelper.JsonOptions` と `Program.cs` の `JsonOptions` を統一
+1. [`FunctionHelper.cs:9-13`](../src/api/XVideoCollector.Functions/Helpers/FunctionHelper.cs#L9), [`Program.cs:19-23`](../src/api/XVideoCollector.Functions/Program.cs#L19), [`ExceptionMiddleware.cs:13-16`](../src/api/XVideoCollector.Functions/Middleware/ExceptionMiddleware.cs#L13) の3箇所の `JsonOptions` を統一
 2. 共通の `JsonSerializerOptions` ファクトリを作成
 
 ---

@@ -31,6 +31,7 @@ public sealed class VideoRepositoryTests : IDisposable
             TimeProvider.System);
 
         await _sut.AddAsync(video);
+        await _db.SaveChangesAsync();
         var result = await _sut.GetByIdAsync(video.Id);
 
         Assert.NotNull(result);
@@ -54,6 +55,7 @@ public sealed class VideoRepositoryTests : IDisposable
 
         await _sut.AddAsync(v1);
         await _sut.AddAsync(v2);
+        await _db.SaveChangesAsync();
 
         var result = await _sut.GetAllAsync();
 
@@ -68,9 +70,11 @@ public sealed class VideoRepositoryTests : IDisposable
             VideoTitle.Create("Original Title"),
             TimeProvider.System);
         await _sut.AddAsync(video);
+        await _db.SaveChangesAsync();
 
         video.UpdateTitle(VideoTitle.Create("Updated Title"), TimeProvider.System);
         await _sut.UpdateAsync(video);
+        await _db.SaveChangesAsync();
 
         var result = await _sut.GetByIdAsync(video.Id);
         Assert.NotNull(result);
@@ -85,8 +89,10 @@ public sealed class VideoRepositoryTests : IDisposable
             VideoTitle.Create("To Delete"),
             TimeProvider.System);
         await _sut.AddAsync(video);
+        await _db.SaveChangesAsync();
 
         await _sut.DeleteAsync(video.Id);
+        await _db.SaveChangesAsync();
 
         var result = await _sut.GetByIdAsync(video.Id);
         Assert.Null(result);
@@ -102,6 +108,7 @@ public sealed class VideoRepositoryTests : IDisposable
 
         await _sut.AddAsync(pending);
         await _sut.AddAsync(failing);
+        await _db.SaveChangesAsync();
 
         var result = await _sut.SearchAsync(new VideoSearchQuery(Status: Domain.Enums.VideoStatus.Pending));
 

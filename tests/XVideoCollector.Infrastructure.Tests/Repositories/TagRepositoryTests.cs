@@ -28,6 +28,7 @@ public sealed class TagRepositoryTests : IDisposable
         var tag = Tag.Create("TestTag", TagColor.Blue, TimeProvider.System);
 
         await _sut.AddAsync(tag);
+        await _db.SaveChangesAsync();
         var result = await _sut.GetByIdAsync(tag.Id);
 
         Assert.NotNull(result);
@@ -40,6 +41,7 @@ public sealed class TagRepositoryTests : IDisposable
     {
         await _sut.AddAsync(Tag.Create("Zebra", TagColor.Red, TimeProvider.System));
         await _sut.AddAsync(Tag.Create("Alpha", TagColor.Green, TimeProvider.System));
+        await _db.SaveChangesAsync();
 
         var result = await _sut.GetAllAsync();
 
@@ -53,8 +55,10 @@ public sealed class TagRepositoryTests : IDisposable
     {
         var tag = Tag.Create("ToDelete", TagColor.Gray, TimeProvider.System);
         await _sut.AddAsync(tag);
+        await _db.SaveChangesAsync();
 
         await _sut.DeleteAsync(tag.Id);
+        await _db.SaveChangesAsync();
 
         var result = await _sut.GetByIdAsync(tag.Id);
         Assert.Null(result);
@@ -65,9 +69,11 @@ public sealed class TagRepositoryTests : IDisposable
     {
         var tag = Tag.Create("Original", TagColor.Red, TimeProvider.System);
         await _sut.AddAsync(tag);
+        await _db.SaveChangesAsync();
 
         tag.Update("Updated", TagColor.Purple, TimeProvider.System);
         await _sut.UpdateAsync(tag);
+        await _db.SaveChangesAsync();
 
         var result = await _sut.GetByIdAsync(tag.Id);
         Assert.NotNull(result);

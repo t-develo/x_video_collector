@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using System.Text;
 using System.Text.Json;
@@ -49,9 +48,9 @@ public sealed class VideoFunctionsTests
         Mock<IListVideosUseCase>? listVideos = null,
         Mock<IUpdateVideoUseCase>? updateVideo = null,
         Mock<IDeleteVideoUseCase>? deleteVideo = null,
-        Mock<IDownloadVideoUseCase>? downloadVideo = null,
         Mock<ISearchVideosUseCase>? searchVideos = null,
-        Mock<IBlobStorageService>? blobStorage = null)
+        Mock<IBlobStorageService>? blobStorage = null,
+        Mock<IDownloadQueueService>? downloadQueue = null)
     {
         return new VideoFunctions(
             registerVideo?.Object ?? new Mock<IRegisterVideoUseCase>().Object,
@@ -59,10 +58,9 @@ public sealed class VideoFunctionsTests
             listVideos?.Object ?? new Mock<IListVideosUseCase>().Object,
             updateVideo?.Object ?? new Mock<IUpdateVideoUseCase>().Object,
             deleteVideo?.Object ?? new Mock<IDeleteVideoUseCase>().Object,
-            downloadVideo?.Object ?? new Mock<IDownloadVideoUseCase>().Object,
             searchVideos?.Object ?? new Mock<ISearchVideosUseCase>().Object,
             blobStorage?.Object ?? new Mock<IBlobStorageService>().Object,
-            NullLogger<VideoFunctions>.Instance);
+            downloadQueue?.Object ?? new Mock<IDownloadQueueService>().Object);
     }
 
     [Fact]
@@ -129,16 +127,17 @@ public sealed class VideoFunctionsTests
             .Setup(x => x.ExecuteAsync(It.IsAny<RegisterVideoRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(videoDto);
 
-        var downloadMock = new Mock<IDownloadVideoUseCase>();
-        downloadMock
-            .Setup(x => x.ExecuteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        var downloadQueueMock = new Mock<IDownloadQueueService>();
+        downloadQueueMock
+            .Setup(x => x.EnqueueAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var sut = CreateSut(registerVideo: registerMock, downloadVideo: downloadMock);
+        var sut = CreateSut(registerVideo: registerMock, downloadQueue: downloadQueueMock);
 
         var result = await sut.RegisterVideoAsync(CreateRequest("POST", body), CancellationToken.None);
 
         Assert.IsType<CreatedAtRouteResult>(result);
+        downloadQueueMock.Verify(x => x.EnqueueAsync(videoId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

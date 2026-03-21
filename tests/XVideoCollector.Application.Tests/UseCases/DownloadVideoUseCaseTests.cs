@@ -1,4 +1,5 @@
 using Moq;
+using XVideoCollector.Application;
 using XVideoCollector.Application.Services;
 using XVideoCollector.Application.UseCases;
 using XVideoCollector.Domain.Entities;
@@ -14,6 +15,7 @@ public sealed class DownloadVideoUseCaseTests
     private readonly Mock<IVideoDownloadService> _downloadMock = new();
     private readonly Mock<IBlobStorageService> _blobMock = new();
     private readonly Mock<IThumbnailService> _thumbnailMock = new();
+    private readonly Mock<IUnitOfWork> _unitOfWorkMock = new();
     private readonly DownloadVideoUseCase _sut;
 
     public DownloadVideoUseCaseTests()
@@ -23,6 +25,7 @@ public sealed class DownloadVideoUseCaseTests
             _downloadMock.Object,
             _blobMock.Object,
             _thumbnailMock.Object,
+            _unitOfWorkMock.Object,
             TimeProvider.System);
     }
 

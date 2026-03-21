@@ -35,6 +35,9 @@ public static class DependencyInjection
         services.Configure<YtDlpOptions>(
             configuration.GetSection(YtDlpOptions.SectionName));
 
+        services.Configure<QueueStorageOptions>(
+            configuration.GetSection(QueueStorageOptions.SectionName));
+
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IVideoRepository, VideoRepository>();
         services.AddScoped<ITagRepository, TagRepository>();
@@ -43,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IBlobStorageService, BlobStorageService>();
         services.AddScoped<IVideoDownloadService, YtDlpDownloadService>();
         services.AddScoped<IThumbnailService, FfmpegThumbnailService>();
+        services.AddScoped<IDownloadQueueService, StorageQueueDownloadQueueService>();
 
         services.AddSingleton(TimeProvider.System);
 

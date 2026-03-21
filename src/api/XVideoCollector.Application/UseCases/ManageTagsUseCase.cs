@@ -6,7 +6,7 @@ using XVideoCollector.Domain.Repositories;
 
 namespace XVideoCollector.Application.UseCases;
 
-public sealed class ManageTagsUseCase(ITagRepository tagRepository, TimeProvider timeProvider) : IManageTagsUseCase
+public sealed class ManageTagsUseCase(ITagRepository tagRepository, IUnitOfWork unitOfWork, TimeProvider timeProvider) : IManageTagsUseCase
 {
     public async Task<IReadOnlyList<TagDto>> GetAllAsync(
         CancellationToken cancellationToken = default)
@@ -30,6 +30,7 @@ public sealed class ManageTagsUseCase(ITagRepository tagRepository, TimeProvider
     {
         var tag = Tag.Create(name, color, timeProvider);
         await tagRepository.AddAsync(tag, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
         return VideoMapper.ToDto(tag);
     }
 
@@ -44,6 +45,7 @@ public sealed class ManageTagsUseCase(ITagRepository tagRepository, TimeProvider
 
         tag.Update(name, color, timeProvider);
         await tagRepository.UpdateAsync(tag, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
         return VideoMapper.ToDto(tag);
     }
 
@@ -55,5 +57,6 @@ public sealed class ManageTagsUseCase(ITagRepository tagRepository, TimeProvider
             ?? throw new InvalidOperationException($"Tag '{id}' not found.");
 
         await tagRepository.DeleteAsync(tag.Id, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

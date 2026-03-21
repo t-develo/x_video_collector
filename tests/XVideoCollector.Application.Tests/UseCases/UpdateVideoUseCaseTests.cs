@@ -1,4 +1,5 @@
 using Moq;
+using XVideoCollector.Application;
 using XVideoCollector.Application.Dtos;
 using XVideoCollector.Application.UseCases;
 using XVideoCollector.Domain.Entities;
@@ -12,6 +13,7 @@ public sealed class UpdateVideoUseCaseTests
     private readonly Mock<IVideoRepository> _videoRepoMock = new();
     private readonly Mock<ITagRepository> _tagRepoMock = new();
     private readonly Mock<IVideoTagRepository> _videoTagRepoMock = new();
+    private readonly Mock<IUnitOfWork> _unitOfWorkMock = new();
     private readonly UpdateVideoUseCase _sut;
 
     public UpdateVideoUseCaseTests()
@@ -20,6 +22,7 @@ public sealed class UpdateVideoUseCaseTests
             _videoRepoMock.Object,
             _tagRepoMock.Object,
             _videoTagRepoMock.Object,
+            _unitOfWorkMock.Object,
             TimeProvider.System);
     }
 
@@ -52,6 +55,7 @@ public sealed class UpdateVideoUseCaseTests
             r => r.SyncByVideoIdAsync(video.Id, It.Is<IReadOnlyList<Guid>>(ids => ids.Contains(tagId)), default),
             Times.Once);
         _videoRepoMock.Verify(r => r.UpdateAsync(video, default), Times.Once);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(default), Times.Once);
     }
 
     [Fact]

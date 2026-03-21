@@ -1,4 +1,5 @@
 using Moq;
+using XVideoCollector.Application;
 using XVideoCollector.Application.UseCases;
 using XVideoCollector.Domain.Entities;
 using XVideoCollector.Domain.Enums;
@@ -9,11 +10,12 @@ namespace XVideoCollector.Application.Tests.UseCases;
 public sealed class ManageTagsUseCaseTests
 {
     private readonly Mock<ITagRepository> _tagRepoMock = new();
+    private readonly Mock<IUnitOfWork> _unitOfWorkMock = new();
     private readonly ManageTagsUseCase _sut;
 
     public ManageTagsUseCaseTests()
     {
-        _sut = new ManageTagsUseCase(_tagRepoMock.Object, TimeProvider.System);
+        _sut = new ManageTagsUseCase(_tagRepoMock.Object, _unitOfWorkMock.Object, TimeProvider.System);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using Moq;
+using XVideoCollector.Application;
 using XVideoCollector.Application.Dtos;
 using XVideoCollector.Application.UseCases;
 using XVideoCollector.Domain.Entities;
@@ -9,11 +10,12 @@ namespace XVideoCollector.Application.Tests.UseCases;
 public sealed class RegisterVideoUseCaseTests
 {
     private readonly Mock<IVideoRepository> _videoRepoMock = new();
+    private readonly Mock<IUnitOfWork> _unitOfWorkMock = new();
     private readonly RegisterVideoUseCase _sut;
 
     public RegisterVideoUseCaseTests()
     {
-        _sut = new RegisterVideoUseCase(_videoRepoMock.Object, TimeProvider.System);
+        _sut = new RegisterVideoUseCase(_videoRepoMock.Object, _unitOfWorkMock.Object, TimeProvider.System);
     }
 
     [Fact]
@@ -30,6 +32,7 @@ public sealed class RegisterVideoUseCaseTests
         Assert.Equal("Test Video", result.Title);
         Assert.Equal(Domain.Enums.VideoStatus.Pending, result.Status);
         _videoRepoMock.Verify(r => r.AddAsync(It.IsAny<Video>(), default), Times.Once);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(default), Times.Once);
     }
 
     [Fact]

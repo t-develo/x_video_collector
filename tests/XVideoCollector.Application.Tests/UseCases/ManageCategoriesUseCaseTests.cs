@@ -1,4 +1,5 @@
 using Moq;
+using XVideoCollector.Application;
 using XVideoCollector.Application.UseCases;
 using XVideoCollector.Domain.Entities;
 using XVideoCollector.Domain.Repositories;
@@ -8,11 +9,12 @@ namespace XVideoCollector.Application.Tests.UseCases;
 public sealed class ManageCategoriesUseCaseTests
 {
     private readonly Mock<ICategoryRepository> _categoryRepoMock = new();
+    private readonly Mock<IUnitOfWork> _unitOfWorkMock = new();
     private readonly ManageCategoriesUseCase _sut;
 
     public ManageCategoriesUseCaseTests()
     {
-        _sut = new ManageCategoriesUseCase(_categoryRepoMock.Object, TimeProvider.System);
+        _sut = new ManageCategoriesUseCase(_categoryRepoMock.Object, _unitOfWorkMock.Object, TimeProvider.System);
     }
 
     [Fact]

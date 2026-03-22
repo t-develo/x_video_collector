@@ -4,6 +4,8 @@ namespace XVideoCollector.Domain.Entities;
 
 public sealed class Tag
 {
+    public const int MaxNameLength = 100;
+
     public Guid Id { get; private set; }
     public string Name { get; private set; }
     public TagColor Color { get; private set; }
@@ -27,7 +29,11 @@ public sealed class Tag
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
-        return new Tag(Guid.NewGuid(), name.Trim(), color, timeProvider.GetUtcNow());
+        var trimmed = name.Trim();
+        if (trimmed.Length > MaxNameLength)
+            throw new ArgumentException($"Name must be {MaxNameLength} characters or fewer.", nameof(name));
+
+        return new Tag(Guid.NewGuid(), trimmed, color, timeProvider.GetUtcNow());
     }
 
     public void Update(string name, TagColor color, TimeProvider timeProvider)
@@ -35,7 +41,11 @@ public sealed class Tag
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
-        Name = name.Trim();
+        var trimmed = name.Trim();
+        if (trimmed.Length > MaxNameLength)
+            throw new ArgumentException($"Name must be {MaxNameLength} characters or fewer.", nameof(name));
+
+        Name = trimmed;
         Color = color;
         UpdatedAt = timeProvider.GetUtcNow();
     }

@@ -21,7 +21,7 @@ public sealed class SearchVideosUseCase(
             CategoryId: request.CategoryId);
 
         var page = request.Page < 1 ? 1 : request.Page;
-        var pageSize = request.PageSize < 1 ? 20 : request.PageSize;
+        var pageSize = Math.Min(request.PageSize < 1 ? 20 : request.PageSize, 100);
         var skip = (page - 1) * pageSize;
 
         var (videos, totalCount) = await videoRepository.SearchPagedAsync(query, skip, pageSize, cancellationToken);

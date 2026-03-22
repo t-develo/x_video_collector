@@ -10,6 +10,7 @@ var host = new HostBuilder()
     .ConfigureFunctionsWebApplication(workerApp =>
     {
         workerApp.UseMiddleware<ExceptionMiddleware>();
+        workerApp.UseMiddleware<AuthMiddleware>();
     })
     .ConfigureServices((context, services) =>
     {

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Text.Json;
+using XVideoCollector.Application.Exceptions;
 
 namespace XVideoCollector.Functions.Middleware;
 
@@ -38,8 +39,7 @@ internal sealed class ExceptionMiddleware(ILogger<ExceptionMiddleware> logger) :
         var (statusCode, message) = ex switch
         {
             ValidationException or ArgumentException => (HttpStatusCode.BadRequest, ex.Message),
-            InvalidOperationException ioe when ioe.Message.Contains("not found") =>
-                (HttpStatusCode.NotFound, ioe.Message),
+            NotFoundException nfe => (HttpStatusCode.NotFound, nfe.Message),
             _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred.")
         };
 

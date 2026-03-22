@@ -14,6 +14,16 @@ internal sealed class VideoTagConfiguration : IEntityTypeConfiguration<VideoTag>
         builder.Property(vt => vt.VideoId).IsRequired();
         builder.Property(vt => vt.TagId).IsRequired();
 
+        builder.HasOne<Video>()
+            .WithMany()
+            .HasForeignKey(vt => vt.VideoId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne<Tag>()
+            .WithMany()
+            .HasForeignKey(vt => vt.TagId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.HasIndex(vt => vt.VideoId);
         builder.HasIndex(vt => vt.TagId);
     }

@@ -2,6 +2,8 @@ namespace XVideoCollector.Domain.Entities;
 
 public sealed class Category
 {
+    public const int MaxNameLength = 100;
+
     public Guid Id { get; private set; }
     public string Name { get; private set; }
     public int SortOrder { get; private set; }
@@ -25,7 +27,11 @@ public sealed class Category
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
-        return new Category(Guid.NewGuid(), name.Trim(), sortOrder, timeProvider.GetUtcNow());
+        var trimmed = name.Trim();
+        if (trimmed.Length > MaxNameLength)
+            throw new ArgumentException($"Name must be {MaxNameLength} characters or fewer.", nameof(name));
+
+        return new Category(Guid.NewGuid(), trimmed, sortOrder, timeProvider.GetUtcNow());
     }
 
     public void Update(string name, int sortOrder, TimeProvider timeProvider)
@@ -33,7 +39,11 @@ public sealed class Category
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
-        Name = name.Trim();
+        var trimmed = name.Trim();
+        if (trimmed.Length > MaxNameLength)
+            throw new ArgumentException($"Name must be {MaxNameLength} characters or fewer.", nameof(name));
+
+        Name = trimmed;
         SortOrder = sortOrder;
         UpdatedAt = timeProvider.GetUtcNow();
     }

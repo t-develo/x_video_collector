@@ -17,6 +17,7 @@ public static class DependencyInjection
         services.AddScoped<ISearchVideosUseCase, SearchVideosUseCase>();
         services.AddScoped<IManageTagsUseCase, ManageTagsUseCase>();
         services.AddScoped<IManageCategoriesUseCase, ManageCategoriesUseCase>();
+        services.AddScoped<IRetryVideoDownloadUseCase, RetryVideoDownloadUseCase>();
 
         return services;
     }

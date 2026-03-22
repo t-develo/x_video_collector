@@ -6,6 +6,12 @@ import { toast } from '../components/toast.js';
 import { navigateTo } from '../router.js';
 import { formatDate, formatDuration, formatFileSize } from '../utils/format.js';
 
+/** ダウンロード中とみなすステータス */
+const TRANSIENT_STATUSES = new Set(['Pending', 'Downloading', 'Processing']);
+
+/** ポーリング間隔（ミリ秒） */
+const POLL_INTERVAL_MS = 3000;
+
 /**
  * タグチップ（選択可能）を生成する
  * @param {object} tag
@@ -97,6 +103,74 @@ function showDeleteModal(page, videoId) {
 }
 
 /**
+ * ダウンロード待機セクションを生成する（ポーリング付き）
+ * @param {HTMLElement} page
+ * @param {object} video
+ * @param {object[]} allTags
+ * @param {object[]} allCategories
+ */
+function renderPendingSection(page, video, allTags, allCategories) {
+  const section = createElement('section', { className: 'detail-pending-section' });
+
+  const statusText = createElement('p', {
+    className: 'detail-pending-status',
+    textContent: getStatusLabel(video.status),
+  });
+
+  const hint = createElement('p', {
+    className: 'detail-pending-hint',
+    textContent: '動画の準備ができると自動的に更新されます',
+  });
+
+  section.appendChild(statusText);
+  section.appendChild(hint);
+  page.appendChild(section);
+
+  // ポーリング: page が DOM から切り離されたら停止
+  const poll = async () => {
+    while (true) {
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+      if (!page.isConnected) break;
+
+      try {
+        const updated = await api.get(`/videos/${video.id}`);
+
+        if (!page.isConnected) break;
+
+        if (!TRANSIENT_STATUSES.has(updated.status)) {
+          // ステータスが確定したらページ全体を再描画
+          clearChildren(page);
+          renderDetailContent(page, updated, allTags, allCategories);
+          break;
+        }
+
+        // まだ処理中 — ステータスラベルだけ更新
+        statusText.textContent = getStatusLabel(updated.status);
+      } catch {
+        // ポーリングエラーは無視して継続
+      }
+    }
+  };
+
+  poll();
+}
+
+/**
+ * ステータスの日本語ラベルを返す
+ * @param {string} status
+ * @returns {string}
+ */
+function getStatusLabel(status) {
+  switch (status) {
+    case 'Pending': return '⏳ ダウンロード待機中...';
+    case 'Downloading': return '⬇️ ダウンロード中...';
+    case 'Processing': return '⚙️ 処理中...';
+    case 'Failed': return '❌ ダウンロードに失敗しました';
+    default: return status;
+  }
+}
+
+/**
  * 動画詳細ページを描画する
  * @param {HTMLElement} container
  * @param {string} videoId
@@ -154,6 +228,12 @@ export async function renderVideoDetailPage(container, videoId) {
  * @param {object[]} allCategories
  */
 function renderDetailContent(page, video, allTags, allCategories) {
+  // ダウンロード中のステータスはポーリングセクションを表示
+  if (TRANSIENT_STATUSES.has(video.status)) {
+    renderPendingSection(page, video, allTags, allCategories);
+    return;
+  }
+
   // 動画プレイヤーセクション（blobPath がある場合のみ）
   if (video.blobPath) {
     const playerSection = createElement('section', { className: 'detail-player-section' });
@@ -247,6 +327,39 @@ function renderDetailContent(page, video, allTags, allCategories) {
 
   infoSection.appendChild(meta);
   page.appendChild(infoSection);
+
+  // Failed 状態の場合は再ダウンロードボタンを表示
+  if (video.status === 'Failed') {
+    const retrySection = createElement('section', { className: 'detail-retry-section' });
+
+    const retryBtn = createElement('button', {
+      className: 'detail-retry-btn',
+      type: 'button',
+      textContent: '再ダウンロード',
+    });
+
+    retryBtn.addEventListener('click', async () => {
+      retryBtn.disabled = true;
+
+      try {
+        await api.post(`/videos/${video.id}/retry`, {});
+        toast.success('再ダウンロードをキューに追加しました');
+        // ステータスが Pending になるのでページを再描画
+        clearChildren(page);
+        renderDetailContent(page, { ...video, status: 'Pending' }, allTags, allCategories);
+      } catch (err) {
+        if (err instanceof ApiError) {
+          toast.error(`再ダウンロードに失敗しました (${err.status})`);
+        } else {
+          toast.error('ネットワークエラーが発生しました');
+        }
+        retryBtn.disabled = false;
+      }
+    });
+
+    retrySection.appendChild(retryBtn);
+    page.appendChild(retrySection);
+  }
 
   // カテゴリ選択セクション
   const categorySection = createElement('section', { className: 'detail-section' });

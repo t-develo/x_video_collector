@@ -27,6 +27,7 @@ internal sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
         builder.Property(c => c.UpdatedAt)
             .IsRequired();
 
+        builder.HasIndex(c => c.Name).IsUnique();
         builder.HasIndex(c => c.SortOrder);
     }
 }

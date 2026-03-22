@@ -4,6 +4,7 @@ using Moq;
 using System.Text;
 using System.Text.Json;
 using XVideoCollector.Application.Dtos;
+using XVideoCollector.Application.Exceptions;
 using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Application.Services;
 using XVideoCollector.Domain.Enums;
@@ -49,6 +50,7 @@ public sealed class VideoFunctionsTests
         Mock<IUpdateVideoUseCase>? updateVideo = null,
         Mock<IDeleteVideoUseCase>? deleteVideo = null,
         Mock<ISearchVideosUseCase>? searchVideos = null,
+        Mock<IRetryVideoDownloadUseCase>? retryVideoDownload = null,
         Mock<IBlobStorageService>? blobStorage = null,
         Mock<IDownloadQueueService>? downloadQueue = null)
     {
@@ -59,6 +61,7 @@ public sealed class VideoFunctionsTests
             updateVideo?.Object ?? new Mock<IUpdateVideoUseCase>().Object,
             deleteVideo?.Object ?? new Mock<IDeleteVideoUseCase>().Object,
             searchVideos?.Object ?? new Mock<ISearchVideosUseCase>().Object,
+            retryVideoDownload?.Object ?? new Mock<IRetryVideoDownloadUseCase>().Object,
             blobStorage?.Object ?? new Mock<IBlobStorageService>().Object,
             downloadQueue?.Object ?? new Mock<IDownloadQueueService>().Object);
     }
@@ -319,5 +322,74 @@ public sealed class VideoFunctionsTests
         searchMock.Verify(x => x.ExecuteAsync(
             It.Is<SearchVideoRequest>(r => r.Status == null),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RegisterVideo_WhenDuplicateUrl_ReturnsConflict()
+    {
+        var body = JsonSerializer.Serialize(new { tweetUrl = "https://x.com/user/status/123", title = "Test" });
+
+        var registerMock = new Mock<IRegisterVideoUseCase>();
+        registerMock
+            .Setup(x => x.ExecuteAsync(It.IsAny<RegisterVideoRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DuplicateTweetUrlException("123"));
+
+        var sut = CreateSut(registerVideo: registerMock);
+
+        var result = await sut.RegisterVideoAsync(CreateRequest("POST", body), CancellationToken.None);
+
+        Assert.IsType<ConflictObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task RetryVideoDownload_WhenFailed_ReturnsAccepted()
+    {
+        var videoId = Guid.NewGuid();
+
+        var retryMock = new Mock<IRetryVideoDownloadUseCase>();
+        retryMock
+            .Setup(x => x.ExecuteAsync(videoId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = CreateSut(retryVideoDownload: retryMock);
+
+        var result = await sut.RetryVideoDownloadAsync(CreateRequest("POST"), videoId, CancellationToken.None);
+
+        Assert.IsType<AcceptedResult>(result);
+        retryMock.Verify(x => x.ExecuteAsync(videoId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RetryVideoDownload_WhenNotFound_ReturnsNotFound()
+    {
+        var videoId = Guid.NewGuid();
+
+        var retryMock = new Mock<IRetryVideoDownloadUseCase>();
+        retryMock
+            .Setup(x => x.ExecuteAsync(videoId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new VideoNotFoundException(videoId));
+
+        var sut = CreateSut(retryVideoDownload: retryMock);
+
+        var result = await sut.RetryVideoDownloadAsync(CreateRequest("POST"), videoId, CancellationToken.None);
+
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task RetryVideoDownload_WhenNotFailed_ReturnsConflict()
+    {
+        var videoId = Guid.NewGuid();
+
+        var retryMock = new Mock<IRetryVideoDownloadUseCase>();
+        retryMock
+            .Setup(x => x.ExecuteAsync(videoId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Cannot retry a video with status 'Ready'."));
+
+        var sut = CreateSut(retryVideoDownload: retryMock);
+
+        var result = await sut.RetryVideoDownloadAsync(CreateRequest("POST"), videoId, CancellationToken.None);
+
+        Assert.IsType<ConflictObjectResult>(result);
     }
 }

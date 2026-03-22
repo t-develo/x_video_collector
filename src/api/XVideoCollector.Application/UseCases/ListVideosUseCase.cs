@@ -15,6 +15,7 @@ public sealed class ListVideosUseCase(
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 20;
+        pageSize = Math.Min(pageSize, 100);
 
         var skip = (page - 1) * pageSize;
         var (videos, totalCount) = await videoRepository.GetPagedAsync(skip, pageSize, cancellationToken);

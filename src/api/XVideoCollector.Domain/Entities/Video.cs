@@ -110,6 +110,17 @@ public sealed class Video
         UpdatedAt = timeProvider.GetUtcNow();
     }
 
+    public void ResetToPending(TimeProvider timeProvider)
+    {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
+        if (Status != VideoStatus.Failed)
+            throw new InvalidOperationException($"Cannot reset to pending from status '{Status}'.");
+
+        Status = VideoStatus.Pending;
+        UpdatedAt = timeProvider.GetUtcNow();
+    }
+
     public void UpdateTitle(VideoTitle title, TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(title);

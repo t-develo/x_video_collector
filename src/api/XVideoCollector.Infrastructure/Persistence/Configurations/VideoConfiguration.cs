@@ -58,6 +58,7 @@ internal sealed class VideoConfiguration : IEntityTypeConfiguration<Video>
         builder.Property(v => v.UpdatedAt)
             .IsRequired();
 
+        builder.HasIndex(v => v.TweetUrl).IsUnique();
         builder.HasIndex(v => v.Status);
         builder.HasIndex(v => v.CategoryId);
         builder.HasIndex(v => v.CreatedAt);

@@ -91,6 +91,10 @@ internal sealed class VideoRepository(AppDbContext db) : IVideoRepository
         return (videos, totalCount);
     }
 
+    public async Task<Video?> FindByTweetIdAsync(string tweetId, CancellationToken cancellationToken = default)
+        => await db.Videos
+            .FirstOrDefaultAsync(v => v.TweetUrl.Value.Contains($"/status/{tweetId}"), cancellationToken);
+
     public async Task AddAsync(Video video, CancellationToken cancellationToken = default)
     {
         await db.Videos.AddAsync(video, cancellationToken);

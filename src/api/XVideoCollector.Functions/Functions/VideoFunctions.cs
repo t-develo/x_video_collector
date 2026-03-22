@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using XVideoCollector.Application.Dtos;
+using XVideoCollector.Application.Exceptions;
 using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Application.Services;
 using XVideoCollector.Domain.Enums;
@@ -16,6 +17,7 @@ public sealed class VideoFunctions(
     IUpdateVideoUseCase updateVideo,
     IDeleteVideoUseCase deleteVideo,
     ISearchVideosUseCase searchVideos,
+    IRetryVideoDownloadUseCase retryVideoDownload,
     IBlobStorageService blobStorageService,
     IDownloadQueueService downloadQueue)
 {
@@ -28,13 +30,20 @@ public sealed class VideoFunctions(
         if (request is null)
             return new BadRequestObjectResult(new { error = "Invalid request body." });
 
-        var video = await registerVideo.ExecuteAsync(request, cancellationToken);
-        await downloadQueue.EnqueueAsync(video.Id, cancellationToken);
+        try
+        {
+            var video = await registerVideo.ExecuteAsync(request, cancellationToken);
+            await downloadQueue.EnqueueAsync(video.Id, cancellationToken);
 
-        return new CreatedAtRouteResult(
-            routeName: null,
-            routeValues: new { id = video.Id },
-            value: video);
+            return new CreatedAtRouteResult(
+                routeName: null,
+                routeValues: new { id = video.Id },
+                value: video);
+        }
+        catch (DuplicateTweetUrlException ex)
+        {
+            return new ConflictObjectResult(new { error = ex.Message });
+        }
     }
 
     [Function("ListVideos")]
@@ -85,6 +94,27 @@ public sealed class VideoFunctions(
     {
         await deleteVideo.ExecuteAsync(id, cancellationToken);
         return new NoContentResult();
+    }
+
+    [Function("RetryVideoDownload")]
+    public async Task<IActionResult> RetryVideoDownloadAsync(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "videos/{id:guid}/retry")] HttpRequest req,
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await retryVideoDownload.ExecuteAsync(id, cancellationToken);
+            return new AcceptedResult();
+        }
+        catch (VideoNotFoundException ex)
+        {
+            return new NotFoundObjectResult(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return new ConflictObjectResult(new { error = ex.Message });
+        }
     }
 
     [Function("GetVideoStreamUrl")]

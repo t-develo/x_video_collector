@@ -9,6 +9,7 @@ public interface IVideoRepository
     Task<(IReadOnlyList<Video> Videos, int TotalCount)> GetPagedAsync(int skip, int take, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Video>> SearchAsync(VideoSearchQuery query, CancellationToken cancellationToken = default);
     Task<(IReadOnlyList<Video> Videos, int TotalCount)> SearchPagedAsync(VideoSearchQuery query, int skip, int take, CancellationToken cancellationToken = default);
+    Task<Video?> FindByTweetIdAsync(string tweetId, CancellationToken cancellationToken = default);
     Task AddAsync(Video video, CancellationToken cancellationToken = default);
     Task UpdateAsync(Video video, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);

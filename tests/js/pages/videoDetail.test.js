@@ -462,4 +462,113 @@ describe('renderVideoDetailPage', () => {
     // モーダルはまだ表示されている
     expect(container.querySelector('.detail-modal-overlay')).not.toBeNull();
   });
+
+  // ========== ステータスポーリング ==========
+
+  it('Pending ステータスの動画はポーリングセクションが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    const pendingVideo = { ...MOCK_VIDEO, status: 'Pending', blobPath: null };
+    api.get.mockImplementation((path) => {
+      if (path.includes('/videos/')) return Promise.resolve(pendingVideo);
+      if (path === '/tags') return Promise.resolve(MOCK_TAGS);
+      if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
+      return Promise.reject(new Error('Unknown path'));
+    });
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    expect(container.querySelector('.detail-pending-section')).not.toBeNull();
+    expect(container.querySelector('.detail-pending-status').textContent).toContain('待機中');
+    // プレイヤーと編集フォームは表示されない
+    expect(container.querySelector('.detail-video-player')).toBeNull();
+    expect(container.querySelector('.detail-save-btn')).toBeNull();
+  });
+
+  it('Downloading ステータスの動画はポーリングセクションが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    const downloadingVideo = { ...MOCK_VIDEO, status: 'Downloading', blobPath: null };
+    api.get.mockImplementation((path) => {
+      if (path.includes('/videos/')) return Promise.resolve(downloadingVideo);
+      if (path === '/tags') return Promise.resolve(MOCK_TAGS);
+      if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
+      return Promise.reject(new Error('Unknown path'));
+    });
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    expect(container.querySelector('.detail-pending-section')).not.toBeNull();
+    expect(container.querySelector('.detail-pending-status').textContent).toContain('ダウンロード中');
+  });
+
+  it('Processing ステータスの動画はポーリングセクションが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    const processingVideo = { ...MOCK_VIDEO, status: 'Processing', blobPath: null };
+    api.get.mockImplementation((path) => {
+      if (path.includes('/videos/')) return Promise.resolve(processingVideo);
+      if (path === '/tags') return Promise.resolve(MOCK_TAGS);
+      if (path === '/categories') return Promise.resolve(MOCK_CATEGORIES);
+      return Promise.reject(new Error('Unknown path'));
+    });
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    expect(container.querySelector('.detail-pending-section')).not.toBeNull();
+    expect(container.querySelector('.detail-pending-status').textContent).toContain('処理中');
+  });
+
+  // ========== 再ダウンロード ==========
+
+  it('Failed ステータスの動画は再ダウンロードボタンが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    const failedVideo = { ...MOCK_VIDEO, status: 'Failed', blobPath: null };
+    mockApiGet(api, { video: failedVideo });
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const retryBtn = container.querySelector('.detail-retry-btn');
+    expect(retryBtn).not.toBeNull();
+    expect(retryBtn.textContent).toContain('再ダウンロード');
+  });
+
+  it('Ready ステータスの動画は再ダウンロードボタンが表示されない', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    expect(container.querySelector('.detail-retry-btn')).toBeNull();
+  });
+
+  it('再ダウンロードボタンをクリックすると api.post が呼ばれる', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    const { toast } = await import('../../../src/frontend/js/components/toast.js');
+    const failedVideo = { ...MOCK_VIDEO, status: 'Failed', blobPath: null };
+    mockApiGet(api, { video: failedVideo });
+    api.post.mockResolvedValue(null);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    container.querySelector('.detail-retry-btn').click();
+    await new Promise(r => setTimeout(r, 0));
+
+    expect(api.post).toHaveBeenCalledWith('/videos/video-1/retry', {});
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('再ダウンロード API エラー時にエラートーストが表示される', async () => {
+    const { api, ApiError } = await import('../../../src/frontend/js/api.js');
+    const { toast } = await import('../../../src/frontend/js/components/toast.js');
+    const failedVideo = { ...MOCK_VIDEO, status: 'Failed', blobPath: null };
+    mockApiGet(api, { video: failedVideo });
+    api.post.mockRejectedValue(new ApiError(409, 'Conflict', 'error'));
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    container.querySelector('.detail-retry-btn').click();
+    await new Promise(r => setTimeout(r, 0));
+
+    expect(toast.error).toHaveBeenCalled();
+    // ボタンが再度有効化されている
+    expect(container.querySelector('.detail-retry-btn').disabled).toBe(false);
+  });
 });

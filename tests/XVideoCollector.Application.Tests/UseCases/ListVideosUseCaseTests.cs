@@ -58,6 +58,37 @@ public sealed class ListVideosUseCaseTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_PageSizeExceeds100_CapsTo100()
+    {
+        _videoRepoMock
+            .Setup(r => r.GetPagedAsync(0, 100, default))
+            .ReturnsAsync((new List<Video>(), 0));
+        _tagRepoMock
+            .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<Tag>>());
+
+        var result = await _sut.ExecuteAsync(page: 1, pageSize: 200);
+
+        Assert.Equal(100, result.PageSize);
+        _videoRepoMock.Verify(r => r.GetPagedAsync(0, 100, default), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_PageSizeLessThan1_DefaultsTo20()
+    {
+        _videoRepoMock
+            .Setup(r => r.GetPagedAsync(0, 20, default))
+            .ReturnsAsync((new List<Video>(), 0));
+        _tagRepoMock
+            .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<Tag>>());
+
+        var result = await _sut.ExecuteAsync(page: 1, pageSize: 0);
+
+        Assert.Equal(20, result.PageSize);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WithTags_MapsTags()
     {
         var video = Video.Create(TweetUrl.Create("https://x.com/u/status/1"), VideoTitle.Create("V1"), TimeProvider.System);

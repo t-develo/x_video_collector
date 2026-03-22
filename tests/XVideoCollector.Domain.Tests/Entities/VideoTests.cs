@@ -150,4 +150,53 @@ public class VideoTests
 
         Assert.Throws<ArgumentNullException>(() => video.UpdateTitle(null!, TimeProvider.System));
     }
+
+    [Fact]
+    public void ResetToPending_FromFailed_SetsPendingStatus()
+    {
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        video.StartDownloading(TimeProvider.System);
+        video.MarkFailed(TimeProvider.System);
+
+        video.ResetToPending(TimeProvider.System);
+
+        Assert.Equal(VideoStatus.Pending, video.Status);
+    }
+
+    [Fact]
+    public void ResetToPending_FromFailed_UpdatesUpdatedAt()
+    {
+        var before = DateTimeOffset.UtcNow;
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        video.StartDownloading(TimeProvider.System);
+        video.MarkFailed(TimeProvider.System);
+
+        video.ResetToPending(TimeProvider.System);
+
+        Assert.True(video.UpdatedAt >= before);
+    }
+
+    [Fact]
+    public void ResetToPending_FromPending_ThrowsInvalidOperationException()
+    {
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+
+        Assert.Throws<InvalidOperationException>(() => video.ResetToPending(TimeProvider.System));
+    }
+
+    [Fact]
+    public void ResetToPending_FromReady_ThrowsInvalidOperationException()
+    {
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        video.StartDownloading(TimeProvider.System);
+        video.StartProcessing(TimeProvider.System);
+        video.MarkReady(
+            BlobPath.Create("videos/test.mp4"),
+            null,
+            60,
+            1024,
+            TimeProvider.System);
+
+        Assert.Throws<InvalidOperationException>(() => video.ResetToPending(TimeProvider.System));
+    }
 }

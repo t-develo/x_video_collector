@@ -164,6 +164,41 @@ public sealed class SearchVideosUseCaseTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_PageSizeExceeds100_CapsTo100()
+    {
+        _videoRepoMock
+            .Setup(r => r.SearchPagedAsync(It.IsAny<VideoSearchQuery>(), 0, 100, default))
+            .ReturnsAsync((new List<Video>(), 0));
+        _tagRepoMock
+            .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<Tag>>());
+
+        var request = new SearchVideoRequest(PageSize: 200);
+        var result = await _sut.ExecuteAsync(request);
+
+        Assert.Equal(100, result.PageSize);
+        _videoRepoMock.Verify(
+            r => r.SearchPagedAsync(It.IsAny<VideoSearchQuery>(), 0, 100, default),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_PageSizeLessThan1_DefaultsTo20()
+    {
+        _videoRepoMock
+            .Setup(r => r.SearchPagedAsync(It.IsAny<VideoSearchQuery>(), 0, 20, default))
+            .ReturnsAsync((new List<Video>(), 0));
+        _tagRepoMock
+            .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<Tag>>());
+
+        var request = new SearchVideoRequest(PageSize: 0);
+        var result = await _sut.ExecuteAsync(request);
+
+        Assert.Equal(20, result.PageSize);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_PageOutOfRange_NormalizesToPage1()
     {
         _videoRepoMock

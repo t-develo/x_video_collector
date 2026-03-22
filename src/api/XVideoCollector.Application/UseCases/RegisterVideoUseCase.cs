@@ -1,4 +1,5 @@
 using XVideoCollector.Application.Dtos;
+using XVideoCollector.Application.Exceptions;
 using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Domain.Entities;
 using XVideoCollector.Domain.Repositories;
@@ -18,6 +19,11 @@ public sealed class RegisterVideoUseCase(
         ArgumentNullException.ThrowIfNull(request);
 
         var tweetUrl = TweetUrl.Create(request.TweetUrl);
+
+        var existing = await videoRepository.FindByTweetIdAsync(tweetUrl.TweetId, cancellationToken);
+        if (existing is not null)
+            throw new DuplicateTweetUrlException(tweetUrl.TweetId);
+
         var title = VideoTitle.Create(request.Title);
         var video = Video.Create(tweetUrl, title, timeProvider);
 

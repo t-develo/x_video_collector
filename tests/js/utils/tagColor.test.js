@@ -29,36 +29,15 @@ describe('tagColor', () => {
   });
 
   describe('getTagColorCss', () => {
-    it('value=0 (Red) → #ff4757 を返す', () => {
-      expect(getTagColorCss(0)).toBe('#ff4757');
+    it('TAG_COLORS の全エントリに対して正しい css を返す', () => {
+      for (const color of TAG_COLORS) {
+        expect(getTagColorCss(color.value)).toBe(color.css);
+      }
     });
 
-    it('value=1 (Orange) → #ffa502 を返す', () => {
-      expect(getTagColorCss(1)).toBe('#ffa502');
-    });
-
-    it('value=4 (Cyan) → #00d4aa を返す', () => {
-      expect(getTagColorCss(4)).toBe('#00d4aa');
-    });
-
-    it('value=8 (Gray) → #888888 を返す', () => {
-      expect(getTagColorCss(8)).toBe('#888888');
-    });
-
-    it('存在しない value (-1) → デフォルト #888888 を返す', () => {
+    it('存在しない value はデフォルト #888888 を返す', () => {
       expect(getTagColorCss(-1)).toBe('#888888');
-    });
-
-    it('存在しない value (99) → デフォルト #888888 を返す', () => {
       expect(getTagColorCss(99)).toBe('#888888');
-    });
-
-    it('境界値: value=0 → 最初の色 (Red)', () => {
-      expect(getTagColorCss(0)).toBe(TAG_COLORS[0].css);
-    });
-
-    it('境界値: value=8 → 最後の色 (Gray)', () => {
-      expect(getTagColorCss(8)).toBe(TAG_COLORS[8].css);
     });
   });
 });

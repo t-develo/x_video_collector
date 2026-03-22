@@ -101,7 +101,7 @@ public sealed class VideoFunctionsTests
     }
 
     [Fact]
-    public async Task ListVideos_ReturnsOk()
+    public async Task ListVideosAsync_WhenCalled_ReturnsOk()
     {
         var paginated = new PaginatedResult<VideoListItemDto>([], 0, 1, 20);
 

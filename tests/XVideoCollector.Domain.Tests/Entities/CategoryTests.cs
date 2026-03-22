@@ -2,7 +2,7 @@ using XVideoCollector.Domain.Entities;
 
 namespace XVideoCollector.Domain.Tests.Entities;
 
-public class CategoryTests
+public sealed class CategoryTests
 {
     [Fact]
     public void Create_ValidArgs_ReturnsCategory()

@@ -3,7 +3,7 @@ using XVideoCollector.Domain.Enums;
 
 namespace XVideoCollector.Domain.Tests.Entities;
 
-public class TagTests
+public sealed class TagTests
 {
     [Fact]
     public void Create_ValidArgs_ReturnsTag()

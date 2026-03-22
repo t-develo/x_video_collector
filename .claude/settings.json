@@ -9,6 +9,16 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[hint] セッションを終了する前に /save-session でコンテキストを保存してください。'"
+          }
+        ]
+      }
     ]
   }
 }

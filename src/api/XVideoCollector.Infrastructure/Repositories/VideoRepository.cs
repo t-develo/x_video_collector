@@ -94,22 +94,18 @@ internal sealed class VideoRepository(AppDbContext db) : IVideoRepository
     public async Task AddAsync(Video video, CancellationToken cancellationToken = default)
     {
         await db.Videos.AddAsync(video, cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task UpdateAsync(Video video, CancellationToken cancellationToken = default)
+    public Task UpdateAsync(Video video, CancellationToken cancellationToken = default)
     {
         db.Videos.Update(video);
-        await db.SaveChangesAsync(cancellationToken);
+        return Task.CompletedTask;
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var video = await db.Videos.FindAsync([id], cancellationToken);
         if (video is not null)
-        {
             db.Videos.Remove(video);
-            await db.SaveChangesAsync(cancellationToken);
-        }
     }
 }

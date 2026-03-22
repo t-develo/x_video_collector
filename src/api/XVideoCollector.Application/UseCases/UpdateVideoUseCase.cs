@@ -9,6 +9,7 @@ public sealed class UpdateVideoUseCase(
     IVideoRepository videoRepository,
     ITagRepository tagRepository,
     IVideoTagRepository videoTagRepository,
+    IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IUpdateVideoUseCase
 {
     public async Task<VideoDto> ExecuteAsync(
@@ -24,9 +25,10 @@ public sealed class UpdateVideoUseCase(
         video.UpdateTitle(title, timeProvider);
         video.SetCategory(request.CategoryId, timeProvider);
 
-        // タグの同期（削除＋追加）を1トランザクションで実行
+        // タグの同期（削除＋追加）と Video 更新を1トランザクションで実行
         await videoTagRepository.SyncByVideoIdAsync(video.Id, request.TagIds, cancellationToken);
         await videoRepository.UpdateAsync(video, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         var tags = await tagRepository.GetByVideoIdAsync(video.Id, cancellationToken);
         var tagDtos = tags.Select(VideoMapper.ToDto).ToList();

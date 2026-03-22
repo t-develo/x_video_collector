@@ -7,7 +7,8 @@ namespace XVideoCollector.Application.UseCases;
 public sealed class DeleteVideoUseCase(
     IVideoRepository videoRepository,
     IVideoTagRepository videoTagRepository,
-    IBlobStorageService blobStorageService) : IDeleteVideoUseCase
+    IBlobStorageService blobStorageService,
+    IUnitOfWork unitOfWork) : IDeleteVideoUseCase
 {
     public async Task ExecuteAsync(
         Guid videoId,
@@ -24,5 +25,6 @@ public sealed class DeleteVideoUseCase(
 
         await videoTagRepository.DeleteByVideoIdAsync(videoId, cancellationToken);
         await videoRepository.DeleteAsync(videoId, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

@@ -10,6 +10,7 @@ public sealed class DownloadVideoUseCase(
     IVideoDownloadService downloadService,
     IBlobStorageService blobStorageService,
     IThumbnailService thumbnailService,
+    IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IDownloadVideoUseCase
 {
     public async Task ExecuteAsync(
@@ -21,6 +22,7 @@ public sealed class DownloadVideoUseCase(
 
         video.StartDownloading(timeProvider);
         await videoRepository.UpdateAsync(video, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         string? tempDir = null;
         try
@@ -32,6 +34,7 @@ public sealed class DownloadVideoUseCase(
 
             video.StartProcessing(timeProvider);
             await videoRepository.UpdateAsync(video, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
 
             using var videoStream = File.OpenRead(result.FilePath);
             var blobName = $"videos/{video.Id}.mp4";
@@ -59,11 +62,13 @@ public sealed class DownloadVideoUseCase(
                 timeProvider);
 
             await videoRepository.UpdateAsync(video, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
         }
         catch
         {
             video.MarkFailed(timeProvider);
             await videoRepository.UpdateAsync(video, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
             throw;
         }
         finally

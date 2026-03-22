@@ -8,6 +8,7 @@ namespace XVideoCollector.Application.UseCases;
 
 public sealed class RegisterVideoUseCase(
     IVideoRepository videoRepository,
+    IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IRegisterVideoUseCase
 {
     public async Task<VideoDto> ExecuteAsync(
@@ -21,6 +22,7 @@ public sealed class RegisterVideoUseCase(
         var video = Video.Create(tweetUrl, title, timeProvider);
 
         await videoRepository.AddAsync(video, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return VideoMapper.ToDto(video, []);
     }

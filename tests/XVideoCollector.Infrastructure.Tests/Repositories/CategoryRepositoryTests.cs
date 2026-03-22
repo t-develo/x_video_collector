@@ -27,6 +27,7 @@ public sealed class CategoryRepositoryTests : IDisposable
         var category = Category.Create("Gaming", 1, TimeProvider.System);
 
         await _sut.AddAsync(category);
+        await _db.SaveChangesAsync();
         var result = await _sut.GetByIdAsync(category.Id);
 
         Assert.NotNull(result);
@@ -39,6 +40,7 @@ public sealed class CategoryRepositoryTests : IDisposable
     {
         await _sut.AddAsync(Category.Create("ZCategory", 2, TimeProvider.System));
         await _sut.AddAsync(Category.Create("ACategory", 1, TimeProvider.System));
+        await _db.SaveChangesAsync();
 
         var result = await _sut.GetAllAsync();
 
@@ -52,8 +54,10 @@ public sealed class CategoryRepositoryTests : IDisposable
     {
         var category = Category.Create("ToDelete", 0, TimeProvider.System);
         await _sut.AddAsync(category);
+        await _db.SaveChangesAsync();
 
         await _sut.DeleteAsync(category.Id);
+        await _db.SaveChangesAsync();
 
         var result = await _sut.GetByIdAsync(category.Id);
         Assert.Null(result);
@@ -64,9 +68,11 @@ public sealed class CategoryRepositoryTests : IDisposable
     {
         var category = Category.Create("Original", 0, TimeProvider.System);
         await _sut.AddAsync(category);
+        await _db.SaveChangesAsync();
 
         category.Update("Updated", 5, TimeProvider.System);
         await _sut.UpdateAsync(category);
+        await _db.SaveChangesAsync();
 
         var result = await _sut.GetByIdAsync(category.Id);
         Assert.NotNull(result);

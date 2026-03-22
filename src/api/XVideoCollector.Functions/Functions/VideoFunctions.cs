@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Extensions.Logging;
 using XVideoCollector.Application.Dtos;
 using XVideoCollector.Application.Interfaces;
 using XVideoCollector.Application.Services;
@@ -16,10 +15,9 @@ public sealed class VideoFunctions(
     IListVideosUseCase listVideos,
     IUpdateVideoUseCase updateVideo,
     IDeleteVideoUseCase deleteVideo,
-    IDownloadVideoUseCase downloadVideo,
     ISearchVideosUseCase searchVideos,
     IBlobStorageService blobStorageService,
-    ILogger<VideoFunctions> logger)
+    IDownloadQueueService downloadQueue)
 {
     [Function("RegisterVideo")]
     public async Task<IActionResult> RegisterVideoAsync(
@@ -31,12 +29,7 @@ public sealed class VideoFunctions(
             return new BadRequestObjectResult(new { error = "Invalid request body." });
 
         var video = await registerVideo.ExecuteAsync(request, cancellationToken);
-
-        // TODO: Queue Trigger（Azure Storage Queue）経由の非同期ダウンロードへ移行すること（Consumption Plan での fire-and-forget 禁止）
-        _ = Task.Run(() => downloadVideo.ExecuteAsync(video.Id, CancellationToken.None), CancellationToken.None)
-            .ContinueWith(
-                t => logger.LogError(t.Exception, "動画ダウンロードでエラーが発生しました。VideoId={VideoId}", video.Id),
-                TaskContinuationOptions.OnlyOnFaulted);
+        await downloadQueue.EnqueueAsync(video.Id, cancellationToken);
 
         return new CreatedAtRouteResult(
             routeName: null,

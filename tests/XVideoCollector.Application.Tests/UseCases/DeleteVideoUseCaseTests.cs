@@ -1,4 +1,5 @@
 using Moq;
+using XVideoCollector.Application;
 using XVideoCollector.Application.Services;
 using XVideoCollector.Application.UseCases;
 using XVideoCollector.Domain.Entities;
@@ -12,6 +13,7 @@ public sealed class DeleteVideoUseCaseTests
     private readonly Mock<IVideoRepository> _videoRepoMock = new();
     private readonly Mock<IVideoTagRepository> _videoTagRepoMock = new();
     private readonly Mock<IBlobStorageService> _blobMock = new();
+    private readonly Mock<IUnitOfWork> _unitOfWorkMock = new();
     private readonly DeleteVideoUseCase _sut;
 
     public DeleteVideoUseCaseTests()
@@ -19,7 +21,8 @@ public sealed class DeleteVideoUseCaseTests
         _sut = new DeleteVideoUseCase(
             _videoRepoMock.Object,
             _videoTagRepoMock.Object,
-            _blobMock.Object);
+            _blobMock.Object,
+            _unitOfWorkMock.Object);
     }
 
     [Fact]
@@ -38,6 +41,7 @@ public sealed class DeleteVideoUseCaseTests
         _videoTagRepoMock.Verify(r => r.DeleteByVideoIdAsync(video.Id, default), Times.Once);
         _videoRepoMock.Verify(r => r.DeleteAsync(video.Id, default), Times.Once);
         _blobMock.Verify(b => b.DeleteAsync(It.IsAny<string>(), default), Times.Never);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(default), Times.Once);
     }
 
     [Fact]

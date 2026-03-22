@@ -16,22 +16,18 @@ internal sealed class CategoryRepository(AppDbContext db) : ICategoryRepository
     public async Task AddAsync(Category category, CancellationToken cancellationToken = default)
     {
         await db.Categories.AddAsync(category, cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task UpdateAsync(Category category, CancellationToken cancellationToken = default)
+    public Task UpdateAsync(Category category, CancellationToken cancellationToken = default)
     {
         db.Categories.Update(category);
-        await db.SaveChangesAsync(cancellationToken);
+        return Task.CompletedTask;
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var category = await db.Categories.FindAsync([id], cancellationToken);
         if (category is not null)
-        {
             db.Categories.Remove(category);
-            await db.SaveChangesAsync(cancellationToken);
-        }
     }
 }

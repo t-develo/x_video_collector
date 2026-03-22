@@ -137,4 +137,32 @@ describe('createVideoCard', () => {
     expect(card.getAttribute('role')).toBe('button');
     expect(card.getAttribute('tabindex')).toBe('0');
   });
+
+  it('Failed ステータスで failureReason がある場合、バッジに title 属性が設定される', () => {
+    const card = createVideoCard(
+      makeVideo({ status: 'Failed', failureReason: 'yt-dlp process exited with code 1' }),
+      () => {},
+    );
+    const badge = card.querySelector('.status-badge');
+    expect(badge).not.toBeNull();
+    expect(badge.getAttribute('title')).toBe('yt-dlp process exited with code 1');
+  });
+
+  it('Failed ステータスで failureReason がない場合、バッジに title 属性が設定されない', () => {
+    const card = createVideoCard(
+      makeVideo({ status: 'Failed', failureReason: null }),
+      () => {},
+    );
+    const badge = card.querySelector('.status-badge');
+    expect(badge.getAttribute('title')).toBeNull();
+  });
+
+  it('Ready ステータスで failureReason があっても title 属性が設定されない', () => {
+    const card = createVideoCard(
+      makeVideo({ status: 'Ready', failureReason: 'should not appear' }),
+      () => {},
+    );
+    const badge = card.querySelector('.status-badge');
+    expect(badge.getAttribute('title')).toBeNull();
+  });
 });

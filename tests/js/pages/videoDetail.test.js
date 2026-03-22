@@ -47,6 +47,8 @@ const MOCK_VIDEO = {
   durationSeconds: 120,
   fileSizeBytes: 5242880,
   categoryId: 'cat-1',
+  notes: null,
+  failureReason: null,
   tags: [
     { id: 'tag-1', name: 'お気に入り', color: 0 },
     { id: 'tag-2', name: 'Music', color: 5 },
@@ -188,6 +190,7 @@ describe('renderVideoDetailPage', () => {
       title: 'テスト動画',
       categoryId: 'cat-1',
       tagIds: ['tag-1', 'tag-2'],
+      notes: null,
     });
     expect(toast.success).toHaveBeenCalled();
   });
@@ -570,5 +573,109 @@ describe('renderVideoDetailPage', () => {
     expect(toast.error).toHaveBeenCalled();
     // ボタンが再度有効化されている
     expect(container.querySelector('.detail-retry-btn').disabled).toBe(false);
+  });
+
+  // ========== メモ機能 ==========
+
+  it('メモ入力欄が表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const textarea = container.querySelector('.detail-notes-textarea');
+    expect(textarea).not.toBeNull();
+  });
+
+  it('既存のメモが textarea に表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api, { video: { ...MOCK_VIDEO, notes: '個人メモです' } });
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const textarea = container.querySelector('.detail-notes-textarea');
+    expect(textarea.value).toBe('個人メモです');
+  });
+
+  it('メモが null の場合は textarea が空になる', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api, { video: { ...MOCK_VIDEO, notes: null } });
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const textarea = container.querySelector('.detail-notes-textarea');
+    expect(textarea.value).toBe('');
+  });
+
+  it('メモを入力して保存すると notes が送信される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+    api.put.mockResolvedValue({ ...MOCK_VIDEO });
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const textarea = container.querySelector('.detail-notes-textarea');
+    textarea.value = 'これは私のメモです';
+
+    container.querySelector('.detail-save-btn').click();
+    await new Promise(r => setTimeout(r, 0));
+
+    const callArgs = api.put.mock.calls[0][1];
+    expect(callArgs.notes).toBe('これは私のメモです');
+  });
+
+  it('メモを空にして保存すると null が送信される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api, { video: { ...MOCK_VIDEO, notes: '既存のメモ' } });
+    api.put.mockResolvedValue({ ...MOCK_VIDEO });
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const textarea = container.querySelector('.detail-notes-textarea');
+    textarea.value = '   ';
+
+    container.querySelector('.detail-save-btn').click();
+    await new Promise(r => setTimeout(r, 0));
+
+    const callArgs = api.put.mock.calls[0][1];
+    expect(callArgs.notes).toBeNull();
+  });
+
+  // ========== 失敗理由表示 ==========
+
+  it('Failed ステータスで failureReason がある場合は失敗理由が表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    const failedVideo = {
+      ...MOCK_VIDEO,
+      status: 'Failed',
+      blobPath: null,
+      failureReason: 'yt-dlp: ERROR: Unable to extract video',
+    };
+    mockApiGet(api, { video: failedVideo });
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    const reason = container.querySelector('.detail-failure-reason');
+    expect(reason).not.toBeNull();
+    expect(reason.textContent).toBe('yt-dlp: ERROR: Unable to extract video');
+  });
+
+  it('Failed ステータスで failureReason が null の場合は失敗理由欄が表示されない', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    const failedVideo = { ...MOCK_VIDEO, status: 'Failed', blobPath: null, failureReason: null };
+    mockApiGet(api, { video: failedVideo });
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    expect(container.querySelector('.detail-failure-reason')).toBeNull();
+  });
+
+  it('Ready ステータスでは失敗理由欄が表示されない', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    mockApiGet(api);
+
+    await renderVideoDetailPage(container, 'video-1');
+
+    expect(container.querySelector('.detail-failure-reason')).toBeNull();
   });
 });

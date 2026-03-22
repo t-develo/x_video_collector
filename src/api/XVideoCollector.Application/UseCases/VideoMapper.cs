@@ -18,6 +18,8 @@ internal static class VideoMapper
             video.DurationSeconds,
             video.FileSizeBytes,
             video.CategoryId,
+            video.Notes,
+            video.FailureReason,
             tags,
             video.CreatedAt,
             video.UpdatedAt);
@@ -31,6 +33,7 @@ internal static class VideoMapper
             video.ThumbnailBlobPath?.Value,
             video.DurationSeconds,
             video.CategoryId,
+            video.FailureReason,
             tags,
             video.CreatedAt);
 

@@ -46,7 +46,7 @@ public sealed class UpdateVideoUseCaseTests
             .Setup(r => r.SyncByVideoIdAsync(video.Id, It.IsAny<IReadOnlyList<Guid>>(), default))
             .Returns(Task.CompletedTask);
 
-        var request = new UpdateVideoRequest(video.Id, "New Title", categoryId, [tagId]);
+        var request = new UpdateVideoRequest(video.Id, "New Title", categoryId, [tagId], null);
         var result = await _sut.ExecuteAsync(request);
 
         Assert.Equal("New Title", result.Title);
@@ -59,13 +59,37 @@ public sealed class UpdateVideoUseCaseTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WithNotes_UpdatesNotes()
+    {
+        var video = Video.Create(
+            TweetUrl.Create("https://x.com/u/status/9"),
+            VideoTitle.Create("Old Title"),
+            TimeProvider.System);
+
+        _videoRepoMock
+            .Setup(r => r.GetByIdAsync(video.Id, default))
+            .ReturnsAsync(video);
+        _tagRepoMock
+            .Setup(r => r.GetByVideoIdAsync(video.Id, default))
+            .ReturnsAsync([]);
+        _videoTagRepoMock
+            .Setup(r => r.SyncByVideoIdAsync(video.Id, It.IsAny<IReadOnlyList<Guid>>(), default))
+            .Returns(Task.CompletedTask);
+
+        var request = new UpdateVideoRequest(video.Id, "New Title", null, [], "My personal note");
+        var result = await _sut.ExecuteAsync(request);
+
+        Assert.Equal("My personal note", result.Notes);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_NonExistingVideo_ThrowsInvalidOperationException()
     {
         _videoRepoMock
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), default))
             .ReturnsAsync((Video?)null);
 
-        var request = new UpdateVideoRequest(Guid.NewGuid(), "Title", null, []);
+        var request = new UpdateVideoRequest(Guid.NewGuid(), "Title", null, [], null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _sut.ExecuteAsync(request));

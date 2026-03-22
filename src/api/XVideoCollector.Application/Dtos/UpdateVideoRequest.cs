@@ -4,4 +4,5 @@ public sealed record UpdateVideoRequest(
     Guid Id,
     string Title,
     Guid? CategoryId,
-    IReadOnlyList<Guid> TagIds);
+    IReadOnlyList<Guid> TagIds,
+    string? Notes);

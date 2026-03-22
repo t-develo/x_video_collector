@@ -52,6 +52,12 @@ internal sealed class VideoConfiguration : IEntityTypeConfiguration<Video>
         builder.Property(v => v.FileSizeBytes);
         builder.Property(v => v.CategoryId);
 
+        builder.Property(v => v.Notes)
+            .HasMaxLength(Video.NotesMaxLength);
+
+        builder.Property(v => v.FailureReason)
+            .HasMaxLength(Video.FailureReasonMaxLength);
+
         builder.Property(v => v.CreatedAt)
             .IsRequired();
 

@@ -8,4 +8,5 @@ public sealed record SearchVideoRequest(
     IReadOnlyList<Guid>? TagIds = null,
     Guid? CategoryId = null,
     int Page = 1,
-    int PageSize = 20);
+    int PageSize = 20,
+    VideoSortOrder SortOrder = VideoSortOrder.CreatedAtDesc);

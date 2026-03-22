@@ -1,4 +1,4 @@
-// pages/videoList.js — 動画一覧ページ（検索・フィルター・ソート対応）
+// pages/videoList.js — 動画一覧ページ（検索・フィルター・サーバーサイドソート対応）
 
 import { createElement, clearChildren } from '../utils/dom.js';
 import { api } from '../api.js';
@@ -7,6 +7,7 @@ import { createSearchBar } from '../components/searchBar.js';
 import { createFilterPanel } from '../components/filterPanel.js';
 import { createSkeletonGrid } from '../components/skeleton.js';
 import { navigateTo, getCurrentQueryParams, setQueryParams } from '../router.js';
+import { formatFileSize } from '../utils/format.js';
 
 const PAGE_SIZE = 20;
 
@@ -16,27 +17,8 @@ const TRANSIENT_STATUSES = new Set(['Pending', 'Downloading', 'Processing']);
 /** 自動リフレッシュ間隔（ミリ秒） */
 const AUTO_REFRESH_INTERVAL_MS = 5000;
 
-/** @typedef {'createdAt'|'title'} SortKey */
+/** @typedef {'createdAt'|'title'|'duration'|'fileSize'} SortKey */
 /** @typedef {'asc'|'desc'} SortDir */
-
-/**
- * 動画配列をクライアントサイドでソートする（元配列を変更しない）
- * @param {Array<object>} videos
- * @param {SortKey} key
- * @param {SortDir} dir
- * @returns {Array<object>}
- */
-export function sortVideos(videos, key, dir) {
-  return [...videos].sort((a, b) => {
-    let cmp;
-    if (key === 'createdAt') {
-      cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    } else {
-      cmp = String(a[key] ?? '').localeCompare(String(b[key] ?? ''), 'ja');
-    }
-    return dir === 'desc' ? -cmp : cmp;
-  });
-}
 
 /**
  * ページネーションコントロールを生成する
@@ -130,7 +112,7 @@ function createEmptyState(hasActiveSearch) {
  * @param {function(SortKey, SortDir): void} onChange
  * @returns {HTMLElement}
  */
-function createSortSelect(sortKey, sortDir, onChange) {
+export function createSortSelect(sortKey, sortDir, onChange) {
   const wrapper = createElement('div', { className: 'video-list-sort' });
 
   const label = createElement('label', {
@@ -145,6 +127,8 @@ function createSortSelect(sortKey, sortDir, onChange) {
     { value: 'createdAt:asc', text: '古い順' },
     { value: 'title:asc', text: 'タイトル昇順' },
     { value: 'title:desc', text: 'タイトル降順' },
+    { value: 'duration:desc', text: '再生時間が長い順' },
+    { value: 'fileSize:desc', text: 'ファイルサイズが大きい順' },
   ];
 
   options.forEach(({ value, text }) => {
@@ -165,6 +149,34 @@ function createSortSelect(sortKey, sortDir, onChange) {
 }
 
 /**
+ * 統計バーを生成する
+ * @param {{totalCount:number, pendingCount:number, downloadingCount:number, processingCount:number, readyCount:number, failedCount:number, totalFileSizeBytes:number}} stats
+ * @returns {HTMLElement}
+ */
+export function createStatsBar(stats) {
+  const bar = createElement('div', { className: 'stats-bar' });
+
+  const items = [
+    { label: '合計', value: String(stats.totalCount), modifier: 'total' },
+    { label: '準備完了', value: String(stats.readyCount), modifier: 'ready' },
+    { label: '待機中', value: String(stats.pendingCount + stats.downloadingCount + stats.processingCount), modifier: 'pending' },
+    { label: 'エラー', value: String(stats.failedCount), modifier: 'failed' },
+    { label: '合計容量', value: formatFileSize(stats.totalFileSizeBytes), modifier: 'size' },
+  ];
+
+  items.forEach(({ label, value, modifier }) => {
+    const item = createElement('div', { className: `stats-bar__item stats-bar__item--${modifier}` });
+    const labelEl = createElement('span', { className: 'stats-bar__label', textContent: label });
+    const valueEl = createElement('span', { className: 'stats-bar__value', textContent: value });
+    item.appendChild(labelEl);
+    item.appendChild(valueEl);
+    bar.appendChild(item);
+  });
+
+  return bar;
+}
+
+/**
  * 検索・フィルター条件から API URL を構築する
  * @param {object} params
  * @param {string} params.keyword
@@ -172,25 +184,30 @@ function createSortSelect(sortKey, sortDir, onChange) {
  * @param {string[]} params.tagIds
  * @param {string|null} params.categoryId
  * @param {number} params.page
+ * @param {SortKey} params.sortKey
+ * @param {SortDir} params.sortDir
  * @returns {string}
  */
-function buildApiUrl({ keyword, status, tagIds, categoryId, page }) {
+export function buildApiUrl({ keyword, status, tagIds, categoryId, page, sortKey, sortDir }) {
+  const qs = new URLSearchParams();
+  if (keyword) qs.set('q', keyword);
+  if (status) qs.set('status', status);
+  if (tagIds.length > 0) qs.set('tagIds', tagIds.join(','));
+  if (categoryId) qs.set('categoryId', categoryId);
+  qs.set('page', String(page));
+  qs.set('pageSize', String(PAGE_SIZE));
+  qs.set('sortBy', sortKey);
+  qs.set('sortDir', sortDir);
+
   const hasSearch = keyword || status || tagIds.length > 0 || categoryId;
   if (hasSearch) {
-    const qs = new URLSearchParams();
-    if (keyword) qs.set('q', keyword);
-    if (status) qs.set('status', status);
-    if (tagIds.length > 0) qs.set('tagIds', tagIds.join(','));
-    if (categoryId) qs.set('categoryId', categoryId);
-    qs.set('page', String(page));
-    qs.set('pageSize', String(PAGE_SIZE));
     return `/videos/search?${qs.toString()}`;
   }
-  return `/videos?page=${page}&pageSize=${PAGE_SIZE}`;
+  return `/videos?${qs.toString()}`;
 }
 
 /**
- * 動画一覧ページを描画する（サーバーサイドページング + 検索/フィルター）
+ * 動画一覧ページを描画する（サーバーサイドページング + 検索/フィルター + サーバーサイドソート）
  * @param {HTMLElement} container
  */
 export async function renderVideoListPage(container) {
@@ -212,6 +229,9 @@ export async function renderVideoListPage(container) {
 
   // ページ構造を構築
   const pageEl = createElement('div', { className: 'video-list-page' });
+
+  // 統計バーコンテナ
+  const statsContainer = createElement('div', { className: 'stats-container' });
 
   // ヘッダー
   const header = createElement('div', { className: 'video-list-header' });
@@ -257,22 +277,30 @@ export async function renderVideoListPage(container) {
   // コンテンツエリア
   const content = createElement('div', { className: 'video-list-content' });
 
+  pageEl.appendChild(statsContainer);
   pageEl.appendChild(header);
   pageEl.appendChild(filterContainer);
   pageEl.appendChild(controls);
   pageEl.appendChild(content);
   container.appendChild(pageEl);
 
-  // タグ・カテゴリを取得してフィルターパネルを構築
+  // 統計・タグ・カテゴリを並列取得
   try {
-    const [tagsResult, categoriesResult] = await Promise.all([
+    const [statsResult, tagsResult, categoriesResult] = await Promise.all([
+      api.getStats(),
       api.get('/tags'),
       api.get('/categories'),
     ]);
+
+    if (statsResult) {
+      clearChildren(statsContainer);
+      statsContainer.appendChild(createStatsBar(statsResult));
+    }
+
     allTags = tagsResult ?? [];
     allCategories = categoriesResult ?? [];
   } catch (_err) {
-    // タグ/カテゴリ取得失敗は無視（フィルターパネルを空で表示）
+    // 統計/タグ/カテゴリ取得失敗は無視（フィルターパネルを空で表示）
   }
 
   const filterPanelEl = createFilterPanel({
@@ -310,7 +338,7 @@ export async function renderVideoListPage(container) {
   }
 
   /**
-   * データを取得して一覧を描画する
+   * データを取得して一覧を描画する（サーバーから返った順序をそのまま表示）
    * @param {number} targetPage
    */
   async function fetchAndRender(targetPage) {
@@ -324,6 +352,8 @@ export async function renderVideoListPage(container) {
         tagIds: currentTagIds,
         categoryId: currentCategoryId,
         page: targetPage,
+        sortKey: currentSortKey,
+        sortDir: currentSortDir,
       });
       const result = await api.get(url);
       const videos = result.items ?? [];
@@ -342,6 +372,7 @@ export async function renderVideoListPage(container) {
       const sortEl = createSortSelect(currentSortKey, currentSortDir, (key, dir) => {
         currentSortKey = key;
         currentSortDir = dir;
+        currentPage = 1;
         syncUrlAndFetch();
       });
       controls.appendChild(countEl);
@@ -355,10 +386,8 @@ export async function renderVideoListPage(container) {
         return;
       }
 
-      const sorted = sortVideos(videos, currentSortKey, currentSortDir);
-
       const grid = createElement('div', { className: 'video-grid' });
-      sorted.forEach(video => {
+      videos.forEach(video => {
         const card = createVideoCard(video, () => navigateTo(`/videos/${video.id}`));
         grid.appendChild(card);
       });

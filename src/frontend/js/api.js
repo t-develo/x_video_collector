@@ -59,6 +59,14 @@ export const api = {
   },
 
   /**
+   * 統計情報を取得する
+   * @returns {Promise<{totalCount:number, pendingCount:number, downloadingCount:number, processingCount:number, readyCount:number, failedCount:number, totalFileSizeBytes:number}>}
+   */
+  getStats() {
+    return request('/stats');
+  },
+
+  /**
    * POST リクエスト
    * @param {string} path
    * @param {unknown} body

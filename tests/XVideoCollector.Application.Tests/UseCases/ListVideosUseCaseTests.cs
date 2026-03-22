@@ -1,6 +1,7 @@
 using Moq;
 using XVideoCollector.Application.UseCases;
 using XVideoCollector.Domain.Entities;
+using XVideoCollector.Domain.Enums;
 using XVideoCollector.Domain.Repositories;
 using XVideoCollector.Domain.ValueObjects;
 
@@ -26,7 +27,7 @@ public sealed class ListVideosUseCaseTests
             Video.Create(TweetUrl.Create("https://x.com/u/status/2"), VideoTitle.Create("V2"), TimeProvider.System),
         };
         _videoRepoMock
-            .Setup(r => r.GetPagedAsync(0, 2, default))
+            .Setup(r => r.GetPagedAsync(0, 2, It.IsAny<VideoSortOrder>(), default))
             .ReturnsAsync((videos, 3));
         _tagRepoMock
             .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
@@ -45,7 +46,7 @@ public sealed class ListVideosUseCaseTests
     public async Task ExecuteAsync_EmptyRepository_ReturnsEmptyResult()
     {
         _videoRepoMock
-            .Setup(r => r.GetPagedAsync(0, 20, default))
+            .Setup(r => r.GetPagedAsync(0, 20, It.IsAny<VideoSortOrder>(), default))
             .ReturnsAsync((new List<Video>(), 0));
         _tagRepoMock
             .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
@@ -61,7 +62,7 @@ public sealed class ListVideosUseCaseTests
     public async Task ExecuteAsync_PageSizeExceeds100_CapsTo100()
     {
         _videoRepoMock
-            .Setup(r => r.GetPagedAsync(0, 100, default))
+            .Setup(r => r.GetPagedAsync(0, 100, It.IsAny<VideoSortOrder>(), default))
             .ReturnsAsync((new List<Video>(), 0));
         _tagRepoMock
             .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
@@ -70,14 +71,14 @@ public sealed class ListVideosUseCaseTests
         var result = await _sut.ExecuteAsync(page: 1, pageSize: 200);
 
         Assert.Equal(100, result.PageSize);
-        _videoRepoMock.Verify(r => r.GetPagedAsync(0, 100, default), Times.Once);
+        _videoRepoMock.Verify(r => r.GetPagedAsync(0, 100, It.IsAny<VideoSortOrder>(), default), Times.Once);
     }
 
     [Fact]
     public async Task ExecuteAsync_PageSizeLessThan1_DefaultsTo20()
     {
         _videoRepoMock
-            .Setup(r => r.GetPagedAsync(0, 20, default))
+            .Setup(r => r.GetPagedAsync(0, 20, It.IsAny<VideoSortOrder>(), default))
             .ReturnsAsync((new List<Video>(), 0));
         _tagRepoMock
             .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))
@@ -99,7 +100,7 @@ public sealed class ListVideosUseCaseTests
         };
 
         _videoRepoMock
-            .Setup(r => r.GetPagedAsync(0, 20, default))
+            .Setup(r => r.GetPagedAsync(0, 20, It.IsAny<VideoSortOrder>(), default))
             .ReturnsAsync((new List<Video> { video }, 1));
         _tagRepoMock
             .Setup(r => r.GetByVideoIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), default))

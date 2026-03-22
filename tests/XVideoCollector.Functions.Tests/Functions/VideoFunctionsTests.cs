@@ -107,7 +107,7 @@ public sealed class VideoFunctionsTests
 
         var listVideosMock = new Mock<IListVideosUseCase>();
         listVideosMock
-            .Setup(x => x.ExecuteAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.ExecuteAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<VideoSortOrder>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(paginated);
 
         var sut = CreateSut(listVideos: listVideosMock);
@@ -116,6 +116,50 @@ public sealed class VideoFunctionsTests
 
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.Equal(paginated, ok.Value);
+    }
+
+    [Fact]
+    public async Task ListVideosAsync_WithSortByTitleAsc_PassesTitleAscToUseCase()
+    {
+        var paginated = new PaginatedResult<VideoListItemDto>([], 0, 1, 20);
+
+        var listVideosMock = new Mock<IListVideosUseCase>();
+        listVideosMock
+            .Setup(x => x.ExecuteAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<VideoSortOrder>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(paginated);
+
+        var req = CreateRequest();
+        req.QueryString = new QueryString("?sortBy=title&sortDir=asc");
+
+        var sut = CreateSut(listVideos: listVideosMock);
+        await sut.ListVideosAsync(req, CancellationToken.None);
+
+        listVideosMock.Verify(x => x.ExecuteAsync(
+            It.IsAny<int>(), It.IsAny<int>(),
+            VideoSortOrder.TitleAsc,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ListVideosAsync_WithUnknownSortBy_DefaultsToCreatedAtDesc()
+    {
+        var paginated = new PaginatedResult<VideoListItemDto>([], 0, 1, 20);
+
+        var listVideosMock = new Mock<IListVideosUseCase>();
+        listVideosMock
+            .Setup(x => x.ExecuteAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<VideoSortOrder>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(paginated);
+
+        var req = CreateRequest();
+        req.QueryString = new QueryString("?sortBy=unknown");
+
+        var sut = CreateSut(listVideos: listVideosMock);
+        await sut.ListVideosAsync(req, CancellationToken.None);
+
+        listVideosMock.Verify(x => x.ExecuteAsync(
+            It.IsAny<int>(), It.IsAny<int>(),
+            VideoSortOrder.CreatedAtDesc,
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

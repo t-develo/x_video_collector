@@ -338,6 +338,85 @@ export async function renderVideoListPage(container) {
   }
 
   /**
+   * コントロールバー（件数・ソート）を更新する
+   * @param {number} totalCount
+   */
+  function renderControls(totalCount) {
+    clearChildren(controls);
+    const countEl = createElement('span', {
+      className: 'video-list-count',
+      textContent: `${totalCount} 件`,
+    });
+    const sortEl = createSortSelect(currentSortKey, currentSortDir, (key, dir) => {
+      currentSortKey = key;
+      currentSortDir = dir;
+      currentPage = 1;
+      syncUrlAndFetch();
+    });
+    controls.appendChild(countEl);
+    controls.appendChild(sortEl);
+  }
+
+  /**
+   * 動画グリッド・ページネーション・自動リフレッシュを描画する
+   * @param {Array} videos
+   * @param {boolean} hasActiveSearch
+   * @param {number} totalPages
+   * @param {number} targetPage
+   */
+  function renderVideoContent(videos, hasActiveSearch, totalPages, targetPage) {
+    clearChildren(content);
+
+    if (videos.length === 0) {
+      content.appendChild(createEmptyState(hasActiveSearch));
+      return;
+    }
+
+    const grid = createElement('div', { className: 'video-grid' });
+    videos.forEach(video => {
+      const card = createVideoCard(video, () => navigateTo(`/videos/${video.id}`));
+      grid.appendChild(card);
+    });
+    content.appendChild(grid);
+
+    if (totalPages > 1) {
+      const pagination = createPagination(currentPage, totalPages, (newPage) => {
+        currentPage = newPage;
+        syncUrlAndFetch();
+        pageEl.scrollIntoView({ behavior: 'smooth' });
+      });
+      content.appendChild(pagination);
+    }
+
+    const hasTransient = videos.some(v => TRANSIENT_STATUSES.has(v.status));
+    if (hasTransient) {
+      scheduleAutoRefresh(pageEl, targetPage, fetchAndRender);
+    }
+  }
+
+  /**
+   * フェッチエラー時のエラー表示を描画する
+   * @param {number} targetPage
+   */
+  function renderFetchError(targetPage) {
+    clearChildren(content);
+    const errWrapper = createElement('div', { className: 'video-list-error' });
+    const errMsg = createElement('p', {
+      className: 'video-list-error__message',
+      textContent: 'データの取得に失敗しました。',
+    });
+    const retryBtn = createElement('button', {
+      className: 'video-list-error__retry-btn',
+      type: 'button',
+      textContent: '再試行',
+    });
+    retryBtn.addEventListener('click', () => fetchAndRender(targetPage));
+    errWrapper.appendChild(errMsg);
+    errWrapper.appendChild(retryBtn);
+    content.appendChild(errWrapper);
+  }
+
+  /**
    * データを取得して一覧を描画する（サーバーから返った順序をそのまま表示）
    * @param {number} targetPage
    */
@@ -360,69 +439,12 @@ export async function renderVideoListPage(container) {
       const totalCount = result.totalCount ?? 0;
       currentPage = result.page ?? targetPage;
       const totalPages = result.totalPages ?? Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-
       const hasActiveSearch = !!(currentKeyword || currentStatus || currentTagIds.length > 0 || currentCategoryId);
 
-      // コントロールバー更新
-      clearChildren(controls);
-      const countEl = createElement('span', {
-        className: 'video-list-count',
-        textContent: `${totalCount} 件`,
-      });
-      const sortEl = createSortSelect(currentSortKey, currentSortDir, (key, dir) => {
-        currentSortKey = key;
-        currentSortDir = dir;
-        currentPage = 1;
-        syncUrlAndFetch();
-      });
-      controls.appendChild(countEl);
-      controls.appendChild(sortEl);
-
-      // コンテンツ描画
-      clearChildren(content);
-
-      if (videos.length === 0) {
-        content.appendChild(createEmptyState(hasActiveSearch));
-        return;
-      }
-
-      const grid = createElement('div', { className: 'video-grid' });
-      videos.forEach(video => {
-        const card = createVideoCard(video, () => navigateTo(`/videos/${video.id}`));
-        grid.appendChild(card);
-      });
-      content.appendChild(grid);
-
-      if (totalPages > 1) {
-        const pagination = createPagination(currentPage, totalPages, (newPage) => {
-          currentPage = newPage;
-          syncUrlAndFetch();
-          pageEl.scrollIntoView({ behavior: 'smooth' });
-        });
-        content.appendChild(pagination);
-      }
-
-      // ダウンロード中の動画がある場合は自動リフレッシュ
-      const hasTransient = videos.some(v => TRANSIENT_STATUSES.has(v.status));
-      if (hasTransient) {
-        scheduleAutoRefresh(pageEl, targetPage, fetchAndRender);
-      }
+      renderControls(totalCount);
+      renderVideoContent(videos, hasActiveSearch, totalPages, targetPage);
     } catch (_err) {
-      clearChildren(content);
-      const errWrapper = createElement('div', { className: 'video-list-error' });
-      const errMsg = createElement('p', {
-        className: 'video-list-error__message',
-        textContent: 'データの取得に失敗しました。',
-      });
-      const retryBtn = createElement('button', {
-        className: 'video-list-error__retry-btn',
-        type: 'button',
-        textContent: '再試行',
-      });
-      retryBtn.addEventListener('click', () => fetchAndRender(targetPage));
-      errWrapper.appendChild(errMsg);
-      errWrapper.appendChild(retryBtn);
-      content.appendChild(errWrapper);
+      renderFetchError(targetPage);
     }
   }
 

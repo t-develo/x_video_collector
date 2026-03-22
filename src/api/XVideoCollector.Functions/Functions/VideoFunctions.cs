@@ -53,8 +53,9 @@ public sealed class VideoFunctions(
     {
         var page = ParseIntQuery(req, "page", 1);
         var pageSize = ParseIntQuery(req, "pageSize", 20);
+        var sortOrder = ParseSortOrder(req);
 
-        var result = await listVideos.ExecuteAsync(page, pageSize, cancellationToken);
+        var result = await listVideos.ExecuteAsync(page, pageSize, sortOrder, cancellationToken);
         return new OkObjectResult(result);
     }
 
@@ -144,6 +145,7 @@ public sealed class VideoFunctions(
         var keyword = req.Query["q"].FirstOrDefault();
         var page = ParseIntQuery(req, "page", 1);
         var pageSize = ParseIntQuery(req, "pageSize", 20);
+        var sortOrder = ParseSortOrder(req);
 
         VideoStatus? status = null;
         var statusStr = req.Query["status"].FirstOrDefault();
@@ -173,7 +175,8 @@ public sealed class VideoFunctions(
             TagIds: tagIds,
             CategoryId: categoryId,
             Page: page,
-            PageSize: pageSize);
+            PageSize: pageSize,
+            SortOrder: sortOrder);
 
         var result = await searchVideos.ExecuteAsync(request, cancellationToken);
         return new OkObjectResult(result);
@@ -183,5 +186,21 @@ public sealed class VideoFunctions(
     {
         var value = req.Query[key].FirstOrDefault();
         return int.TryParse(value, out var parsed) ? parsed : defaultValue;
+    }
+
+    private static VideoSortOrder ParseSortOrder(HttpRequest req)
+    {
+        var sortBy = req.Query["sortBy"].FirstOrDefault() ?? string.Empty;
+        var sortDir = req.Query["sortDir"].FirstOrDefault() ?? string.Empty;
+        var isDesc = !string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
+
+        return sortBy.ToLowerInvariant() switch
+        {
+            "title" => isDesc ? VideoSortOrder.TitleDesc : VideoSortOrder.TitleAsc,
+            "duration" => VideoSortOrder.DurationDesc,
+            "filesize" => VideoSortOrder.FileSizeDesc,
+            "createdat" => isDesc ? VideoSortOrder.CreatedAtDesc : VideoSortOrder.CreatedAtAsc,
+            _ => isDesc ? VideoSortOrder.CreatedAtDesc : VideoSortOrder.CreatedAtAsc,
+        };
     }
 }

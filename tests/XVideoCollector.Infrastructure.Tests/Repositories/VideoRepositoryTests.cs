@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using XVideoCollector.Domain.Entities;
+using XVideoCollector.Domain.Enums;
 using XVideoCollector.Domain.Repositories;
 using XVideoCollector.Domain.ValueObjects;
 using XVideoCollector.Infrastructure.Persistence;
@@ -155,5 +156,88 @@ public sealed class VideoRepositoryTests : IDisposable
         Assert.Null(result);
     }
 
+    [Fact]
+    public async Task GetPagedAsync_WithTitleAscSort_ReturnsTitleOrdered()
+    {
+        var v1 = Video.Create(TweetUrl.Create("https://x.com/u/status/1"), VideoTitle.Create("Zebra"), TimeProvider.System);
+        var v2 = Video.Create(TweetUrl.Create("https://x.com/u/status/2"), VideoTitle.Create("Apple"), TimeProvider.System);
+        var v3 = Video.Create(TweetUrl.Create("https://x.com/u/status/3"), VideoTitle.Create("Mango"), TimeProvider.System);
+
+        await _sut.AddAsync(v1);
+        await _sut.AddAsync(v2);
+        await _sut.AddAsync(v3);
+        await _db.SaveChangesAsync();
+
+        var (videos, total) = await _sut.GetPagedAsync(0, 10, VideoSortOrder.TitleAsc);
+
+        Assert.Equal(3, total);
+        Assert.Equal("Apple", videos[0].Title.Value);
+        Assert.Equal("Mango", videos[1].Title.Value);
+        Assert.Equal("Zebra", videos[2].Title.Value);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_WithCreatedAtAscSort_ReturnsOldestFirst()
+    {
+        var tp = new FakeTimeProvider();
+
+        tp.SetTime(DateTimeOffset.UtcNow.AddDays(-2));
+        var old = Video.Create(TweetUrl.Create("https://x.com/u/status/10"), VideoTitle.Create("Old"), tp);
+
+        tp.SetTime(DateTimeOffset.UtcNow);
+        var newest = Video.Create(TweetUrl.Create("https://x.com/u/status/11"), VideoTitle.Create("New"), tp);
+
+        await _sut.AddAsync(old);
+        await _sut.AddAsync(newest);
+        await _db.SaveChangesAsync();
+
+        var (videos, _) = await _sut.GetPagedAsync(0, 10, VideoSortOrder.CreatedAtAsc);
+
+        Assert.Equal(old.Id, videos[0].Id);
+        Assert.Equal(newest.Id, videos[1].Id);
+    }
+
+    [Fact]
+    public async Task GetStatsAsync_WithMixedStatuses_ReturnsCorrectCounts()
+    {
+        var tp = TimeProvider.System;
+        var v1 = Video.Create(TweetUrl.Create("https://x.com/u/status/21"), VideoTitle.Create("V1"), tp);
+        var v2 = Video.Create(TweetUrl.Create("https://x.com/u/status/22"), VideoTitle.Create("V2"), tp);
+        v2.StartDownloading(tp);
+        v2.MarkFailed(tp);
+
+        await _sut.AddAsync(v1);
+        await _sut.AddAsync(v2);
+        await _db.SaveChangesAsync();
+
+        var stats = await _sut.GetStatsAsync();
+
+        Assert.Equal(2, stats.TotalCount);
+        Assert.Equal(1, stats.PendingCount);
+        Assert.Equal(1, stats.FailedCount);
+        Assert.Equal(0, stats.ReadyCount);
+    }
+
+    [Fact]
+    public async Task GetStatsAsync_WhenNoVideos_ReturnsZeroCounts()
+    {
+        var stats = await _sut.GetStatsAsync();
+
+        Assert.Equal(0, stats.TotalCount);
+        Assert.Equal(0, stats.TotalFileSizeBytes);
+    }
+
     public void Dispose() => _db.Dispose();
+}
+
+/// <summary>
+/// テスト用の時刻プロバイダー（CreatedAt の制御用）
+/// </summary>
+internal sealed class FakeTimeProvider : TimeProvider
+{
+    private DateTimeOffset _utcNow = DateTimeOffset.UtcNow;
+
+    public void SetTime(DateTimeOffset time) => _utcNow = time;
+
+    public override DateTimeOffset GetUtcNow() => _utcNow;
 }

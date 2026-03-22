@@ -18,6 +18,7 @@ public static class DependencyInjection
         services.AddScoped<IManageTagsUseCase, ManageTagsUseCase>();
         services.AddScoped<IManageCategoriesUseCase, ManageCategoriesUseCase>();
         services.AddScoped<IRetryVideoDownloadUseCase, RetryVideoDownloadUseCase>();
+        services.AddScoped<IGetStatsUseCase, GetStatsUseCase>();
 
         return services;
     }

@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderVideoListPage, sortVideos, createPagination } from '../../../src/frontend/js/pages/videoList.js';
+import { renderVideoListPage, createPagination, createSortSelect, createStatsBar, buildApiUrl } from '../../../src/frontend/js/pages/videoList.js';
 
 // api モジュールをモック
 vi.mock('../../../src/frontend/js/api.js', () => ({
   api: {
     get: vi.fn(),
+    getStats: vi.fn(),
   },
 }));
 
@@ -45,45 +46,89 @@ function makeVideos(count, startId = 1) {
   return Array.from({ length: count }, (_, i) => makeVideo(startId + i));
 }
 
-describe('sortVideos', () => {
-  const videos = [
-    makeVideo(1, { title: 'ぜんぶ', createdAt: '2026-01-01T00:00:00Z' }),
-    makeVideo(2, { title: 'あいう', createdAt: '2026-01-03T00:00:00Z' }),
-    makeVideo(3, { title: 'まみむ', createdAt: '2026-01-02T00:00:00Z' }),
-  ];
+/** デフォルト統計オブジェクト */
+const DEFAULT_STATS = {
+  totalCount: 10,
+  pendingCount: 1,
+  downloadingCount: 0,
+  processingCount: 0,
+  readyCount: 8,
+  failedCount: 1,
+  totalFileSizeBytes: 1024 * 1024 * 100,
+};
 
-  it('createdAt 降順（新しい順）でソートされる', () => {
-    const result = sortVideos(videos, 'createdAt', 'desc');
-    expect(result[0].id).toBe(2);
-    expect(result[1].id).toBe(3);
-    expect(result[2].id).toBe(1);
+describe('buildApiUrl', () => {
+  it('検索条件なしで /videos エンドポイントを返す', () => {
+    const url = buildApiUrl({ keyword: '', status: null, tagIds: [], categoryId: null, page: 1, sortKey: 'createdAt', sortDir: 'desc' });
+    expect(url).toContain('/videos?');
+    expect(url).not.toContain('/search');
+    expect(url).toContain('sortBy=createdAt');
+    expect(url).toContain('sortDir=desc');
   });
 
-  it('createdAt 昇順（古い順）でソートされる', () => {
-    const result = sortVideos(videos, 'createdAt', 'asc');
-    expect(result[0].id).toBe(1);
-    expect(result[1].id).toBe(3);
-    expect(result[2].id).toBe(2);
+  it('検索条件ありで /videos/search エンドポイントを返す', () => {
+    const url = buildApiUrl({ keyword: 'test', status: null, tagIds: [], categoryId: null, page: 1, sortKey: 'title', sortDir: 'asc' });
+    expect(url).toContain('/videos/search?');
+    expect(url).toContain('q=test');
+    expect(url).toContain('sortBy=title');
+    expect(url).toContain('sortDir=asc');
   });
 
-  it('title 昇順でソートされる', () => {
-    const result = sortVideos(videos, 'title', 'asc');
-    // 日本語ロケール順: あいう < ぜんぶ < まみむ
-    expect(result[0].title).toBe('あいう');
-    expect(result[1].title).toBe('ぜんぶ');
-    expect(result[2].title).toBe('まみむ');
+  it('タイトルソートのパラメータが正しく付与される', () => {
+    const url = buildApiUrl({ keyword: '', status: null, tagIds: [], categoryId: null, page: 2, sortKey: 'title', sortDir: 'asc' });
+    expect(url).toContain('sortBy=title');
+    expect(url).toContain('sortDir=asc');
+    expect(url).toContain('page=2');
+  });
+});
+
+describe('createSortSelect', () => {
+  it('ソートセレクトボックスが生成される', () => {
+    const el = createSortSelect('createdAt', 'desc', () => {});
+    expect(el.querySelector('select')).not.toBeNull();
+    expect(el.querySelector('label')).not.toBeNull();
   });
 
-  it('title 降順でソートされる', () => {
-    const result = sortVideos(videos, 'title', 'desc');
-    // 降順: まみむ > ぜんぶ > あいう
-    expect(result[0].title).toBe('まみむ');
+  it('初期値が正しく選択される', () => {
+    const el = createSortSelect('title', 'asc', () => {});
+    const select = el.querySelector('select');
+    expect(select.value).toBe('title:asc');
   });
 
-  it('元の配列を変更しない', () => {
-    const original = [...videos];
-    sortVideos(videos, 'title', 'asc');
-    expect(videos).toEqual(original);
+  it('変更時に onChange コールバックが呼ばれる', () => {
+    const onChange = vi.fn();
+    const el = createSortSelect('createdAt', 'desc', onChange);
+    const select = el.querySelector('select');
+    select.value = 'title:asc';
+    select.dispatchEvent(new Event('change'));
+    expect(onChange).toHaveBeenCalledWith('title', 'asc');
+  });
+});
+
+describe('createStatsBar', () => {
+  it('統計バーが生成される', () => {
+    const el = createStatsBar(DEFAULT_STATS);
+    expect(el.classList.contains('stats-bar')).toBe(true);
+  });
+
+  it('合計件数が表示される', () => {
+    const el = createStatsBar(DEFAULT_STATS);
+    const values = el.querySelectorAll('.stats-bar__value');
+    expect(values[0].textContent).toBe('10');
+  });
+
+  it('準備完了件数が表示される', () => {
+    const el = createStatsBar(DEFAULT_STATS);
+    const items = el.querySelectorAll('.stats-bar__item');
+    const readyItem = Array.from(items).find(i => i.classList.contains('stats-bar__item--ready'));
+    expect(readyItem.querySelector('.stats-bar__value').textContent).toBe('8');
+  });
+
+  it('エラー件数が表示される', () => {
+    const el = createStatsBar(DEFAULT_STATS);
+    const items = el.querySelectorAll('.stats-bar__item');
+    const failedItem = Array.from(items).find(i => i.classList.contains('stats-bar__item--failed'));
+    expect(failedItem.querySelector('.stats-bar__value').textContent).toBe('1');
   });
 });
 
@@ -127,16 +172,15 @@ describe('createPagination', () => {
 });
 
 /**
- * api.get を URL に応じて適切な値を返すようにセットアップする
- * @param {import('vitest').MockInstance} mock - api.get のモック
- * @param {object|Array} videosResponse - /videos* へのレスポンス
+ * api.get と api.getStats を URL に応じて適切な値を返すようにセットアップする
  */
-async function setupApiMock(mock, videosResponse) {
-  mock.mockImplementation((url) => {
+async function setupApiMock(getStub, getStatsMock, videosResponse) {
+  getStub.mockImplementation((url) => {
     if (url === '/tags') return Promise.resolve([]);
     if (url === '/categories') return Promise.resolve([]);
     return Promise.resolve(videosResponse);
   });
+  getStatsMock.mockResolvedValue(DEFAULT_STATS);
 }
 
 describe('renderVideoListPage', () => {
@@ -154,7 +198,7 @@ describe('renderVideoListPage', () => {
 
   it('動画がある場合にカードグリッドが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    await setupApiMock(api.get, { items: makeVideos(3), totalCount: 3, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, api.getStats, { items: makeVideos(3), totalCount: 3, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -166,7 +210,7 @@ describe('renderVideoListPage', () => {
 
   it('動画がない場合に空状態が表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    await setupApiMock(api.get, { items: [], totalCount: 0, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, api.getStats, { items: [], totalCount: 0, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -176,7 +220,7 @@ describe('renderVideoListPage', () => {
 
   it('20件以下ではページネーションが表示されない', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    await setupApiMock(api.get, { items: makeVideos(10), totalCount: 10, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, api.getStats, { items: makeVideos(10), totalCount: 10, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -185,7 +229,7 @@ describe('renderVideoListPage', () => {
 
   it('21件以上ではページネーションが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    await setupApiMock(api.get, { items: makeVideos(25), totalCount: 25, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, api.getStats, { items: makeVideos(25), totalCount: 25, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -194,7 +238,7 @@ describe('renderVideoListPage', () => {
 
   it('件数が表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    await setupApiMock(api.get, { items: makeVideos(5), totalCount: 5, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, api.getStats, { items: makeVideos(5), totalCount: 5, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -204,6 +248,7 @@ describe('renderVideoListPage', () => {
 
   it('API エラー時にエラーメッセージが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
+    api.getStats.mockResolvedValue(DEFAULT_STATS);
     api.get.mockImplementation((url) => {
       if (url === '/tags' || url === '/categories') return Promise.resolve([]);
       return Promise.reject(new Error('Network error'));
@@ -217,7 +262,7 @@ describe('renderVideoListPage', () => {
 
   it('ソートセレクトが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    await setupApiMock(api.get, { items: makeVideos(3), totalCount: 3, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, api.getStats, { items: makeVideos(3), totalCount: 3, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -226,7 +271,7 @@ describe('renderVideoListPage', () => {
 
   it('ページタイトルが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    await setupApiMock(api.get, { items: [], totalCount: 0, page: 1, pageSize: 20 });
+    await setupApiMock(api.get, api.getStats, { items: [], totalCount: 0, page: 1, pageSize: 20 });
 
     await renderVideoListPage(container);
 
@@ -237,27 +282,37 @@ describe('renderVideoListPage', () => {
 
   it('API レスポンスの items が undefined でも空状態を表示する', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    await setupApiMock(api.get, {});
+    await setupApiMock(api.get, api.getStats, {});
 
     await renderVideoListPage(container);
 
     expect(container.querySelector('.video-list-empty')).not.toBeNull();
   });
 
-  it('検索条件なしで /videos?page=1&pageSize=20 エンドポイントを呼び出す', async () => {
+  it('デフォルトソートで sortBy=createdAt&sortDir=desc を含む URL を呼び出す', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    await setupApiMock(api.get, { items: [] });
+    await setupApiMock(api.get, api.getStats, { items: [] });
 
     await renderVideoListPage(container);
 
     const videoCalls = api.get.mock.calls.filter(([url]) => url.startsWith('/videos'));
-    expect(videoCalls.length).toBeGreaterThanOrEqual(1);
-    expect(videoCalls[videoCalls.length - 1][0]).toBe('/videos?page=1&pageSize=20');
+    const lastCall = videoCalls[videoCalls.length - 1][0];
+    expect(lastCall).toContain('sortBy=createdAt');
+    expect(lastCall).toContain('sortDir=desc');
+  });
+
+  it('統計バーが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    await setupApiMock(api.get, api.getStats, { items: [], totalCount: 0, page: 1, pageSize: 20 });
+
+    await renderVideoListPage(container);
+
+    expect(container.querySelector('.stats-bar')).not.toBeNull();
   });
 
   it('検索バーが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    await setupApiMock(api.get, { items: [] });
+    await setupApiMock(api.get, api.getStats, { items: [] });
 
     await renderVideoListPage(container);
 
@@ -267,7 +322,7 @@ describe('renderVideoListPage', () => {
 
   it('フィルタートグルボタンが表示される', async () => {
     const { api } = await import('../../../src/frontend/js/api.js');
-    await setupApiMock(api.get, { items: [] });
+    await setupApiMock(api.get, api.getStats, { items: [] });
 
     await renderVideoListPage(container);
 

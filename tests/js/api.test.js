@@ -70,4 +70,19 @@ describe('api', () => {
       expect(err.name).toBe('ApiError');
     });
   });
+
+  describe('getStats', () => {
+    it('/stats エンドポイントにリクエストする', async () => {
+      const stats = { totalCount: 5, readyCount: 3, failedCount: 1 };
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => stats,
+      });
+
+      const result = await api.getStats();
+      expect(result).toEqual(stats);
+      expect(fetch).toHaveBeenCalledWith('/api/stats', expect.anything());
+    });
+  });
 });

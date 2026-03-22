@@ -1,5 +1,67 @@
 /* videoList.css — 動画一覧ページのスタイル */
 
+/* 統計バー */
+.stats-container {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 0 var(--space-xl);
+}
+
+.stats-bar {
+  display: flex;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  padding: var(--space-md) var(--space-lg);
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-lg);
+}
+
+.stats-bar__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 70px;
+}
+
+.stats-bar__label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stats-bar__value {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+
+.stats-bar__item--ready .stats-bar__value {
+  color: var(--color-success);
+}
+
+.stats-bar__item--failed .stats-bar__value {
+  color: var(--color-danger);
+}
+
+.stats-bar__item--pending .stats-bar__value {
+  color: var(--color-warning);
+}
+
+@media (max-width: 768px) {
+  .stats-container {
+    padding: 0 var(--space-md);
+  }
+
+  .stats-bar {
+    gap: var(--space-md);
+  }
+}
+
 /* ページレイアウト */
 .video-list-page {
   padding: var(--space-xl) var(--space-xl);

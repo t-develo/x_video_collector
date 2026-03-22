@@ -18,7 +18,8 @@ public sealed class SearchVideosUseCase(
             Keyword: request.Keyword,
             Status: request.Status,
             TagIds: request.TagIds,
-            CategoryId: request.CategoryId);
+            CategoryId: request.CategoryId,
+            SortOrder: request.SortOrder);
 
         var page = request.Page < 1 ? 1 : request.Page;
         var pageSize = Math.Min(request.PageSize < 1 ? 20 : request.PageSize, 100);

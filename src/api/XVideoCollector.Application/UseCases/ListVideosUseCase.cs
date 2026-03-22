@@ -1,5 +1,6 @@
 using XVideoCollector.Application.Dtos;
 using XVideoCollector.Application.Interfaces;
+using XVideoCollector.Domain.Enums;
 using XVideoCollector.Domain.Repositories;
 
 namespace XVideoCollector.Application.UseCases;
@@ -11,6 +12,7 @@ public sealed class ListVideosUseCase(
     public async Task<PaginatedResult<VideoListItemDto>> ExecuteAsync(
         int page = 1,
         int pageSize = 20,
+        VideoSortOrder sortOrder = VideoSortOrder.CreatedAtDesc,
         CancellationToken cancellationToken = default)
     {
         if (page < 1) page = 1;
@@ -18,7 +20,7 @@ public sealed class ListVideosUseCase(
         pageSize = Math.Min(pageSize, 100);
 
         var skip = (page - 1) * pageSize;
-        var (videos, totalCount) = await videoRepository.GetPagedAsync(skip, pageSize, cancellationToken);
+        var (videos, totalCount) = await videoRepository.GetPagedAsync(skip, pageSize, sortOrder, cancellationToken);
 
         var videoIds = videos.Select(v => v.Id).ToList();
         var tagsByVideoId = await tagRepository.GetByVideoIdsAsync(videoIds, cancellationToken);

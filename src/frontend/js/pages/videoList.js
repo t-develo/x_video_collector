@@ -10,6 +10,12 @@ import { navigateTo, getCurrentQueryParams, setQueryParams } from '../router.js'
 
 const PAGE_SIZE = 20;
 
+/** ダウンロード中とみなすステータス */
+const TRANSIENT_STATUSES = new Set(['Pending', 'Downloading', 'Processing']);
+
+/** 自動リフレッシュ間隔（ミリ秒） */
+const AUTO_REFRESH_INTERVAL_MS = 5000;
+
 /** @typedef {'createdAt'|'title'} SortKey */
 /** @typedef {'asc'|'desc'} SortDir */
 
@@ -67,6 +73,19 @@ export function createPagination(page, totalPages, onPageChange) {
   nav.appendChild(nextBtn);
 
   return nav;
+}
+
+/**
+ * ダウンロード中の動画がある場合に自動リフレッシュをスケジュールする
+ * @param {HTMLElement} pageEl - ページ要素（DOM 切り離しを検知するため）
+ * @param {number} targetPage
+ * @param {function(number): Promise<void>} fetchAndRender
+ */
+function scheduleAutoRefresh(pageEl, targetPage, fetchAndRender) {
+  setTimeout(async () => {
+    if (!pageEl.isConnected) return;
+    await fetchAndRender(targetPage);
+  }, AUTO_REFRESH_INTERVAL_MS);
 }
 
 /**
@@ -352,6 +371,12 @@ export async function renderVideoListPage(container) {
           pageEl.scrollIntoView({ behavior: 'smooth' });
         });
         content.appendChild(pagination);
+      }
+
+      // ダウンロード中の動画がある場合は自動リフレッシュ
+      const hasTransient = videos.some(v => TRANSIENT_STATUSES.has(v.status));
+      if (hasTransient) {
+        scheduleAutoRefresh(pageEl, targetPage, fetchAndRender);
       }
     } catch (_err) {
       clearChildren(content);

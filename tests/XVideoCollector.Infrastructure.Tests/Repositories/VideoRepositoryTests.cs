@@ -116,5 +116,44 @@ public sealed class VideoRepositoryTests : IDisposable
         Assert.Equal(pending.Id, result[0].Id);
     }
 
+    [Fact]
+    public async Task FindByTweetIdAsync_WhenExists_ReturnsVideo()
+    {
+        var video = Video.Create(
+            TweetUrl.Create("https://x.com/user/status/987654321"),
+            VideoTitle.Create("Find By TweetId"),
+            TimeProvider.System);
+        await _sut.AddAsync(video);
+        await _db.SaveChangesAsync();
+
+        var result = await _sut.FindByTweetIdAsync("987654321");
+
+        Assert.NotNull(result);
+        Assert.Equal(video.Id, result.Id);
+    }
+
+    [Fact]
+    public async Task FindByTweetIdAsync_WhenNotExists_ReturnsNull()
+    {
+        var result = await _sut.FindByTweetIdAsync("nonexistent");
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task FindByTweetIdAsync_WhenDifferentId_ReturnsNull()
+    {
+        var video = Video.Create(
+            TweetUrl.Create("https://x.com/user/status/111111111"),
+            VideoTitle.Create("Some Video"),
+            TimeProvider.System);
+        await _sut.AddAsync(video);
+        await _db.SaveChangesAsync();
+
+        var result = await _sut.FindByTweetIdAsync("222222222");
+
+        Assert.Null(result);
+    }
+
     public void Dispose() => _db.Dispose();
 }

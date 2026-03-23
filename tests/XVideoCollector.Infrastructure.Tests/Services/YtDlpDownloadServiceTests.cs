@@ -111,4 +111,39 @@ public class YtDlpDownloadServiceTests
     {
         Assert.Equal("YtDlp", YtDlpOptions.SectionName);
     }
+
+    [Fact]
+    public void YtDlpOptions_FfprobePath_DefaultIsFfprobe()
+    {
+        var opts = new YtDlpOptions();
+
+        Assert.Equal("ffprobe", opts.FfprobePath);
+    }
+
+    // ── GetDurationSecondsAsync ──────────────────────────────────────
+
+    [Fact]
+    public async Task GetDurationSecondsAsync_InvalidExecutable_ReturnsZero()
+    {
+        // ffprobe のパスに無効な実行ファイルを指定した場合は 0 を返す（例外を握りつぶす）
+        var service = CreateService(new YtDlpOptions { FfprobePath = "/nonexistent/ffprobe" });
+
+        var result = await service.GetDurationSecondsAsync(
+            "/some/file.mp4", CancellationToken.None);
+
+        Assert.Equal(0, result);
+    }
+
+    [Fact]
+    public async Task GetDurationSecondsAsync_CancellationRequested_ReturnsZero()
+    {
+        // キャンセル時も 0 を返す（例外を握りつぶす）
+        var service = CreateService(new YtDlpOptions { FfprobePath = "/nonexistent/ffprobe" });
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var result = await service.GetDurationSecondsAsync("/some/file.mp4", cts.Token);
+
+        Assert.Equal(0, result);
+    }
 }

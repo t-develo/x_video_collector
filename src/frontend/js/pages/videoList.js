@@ -217,7 +217,7 @@ export async function renderVideoListPage(container) {
   let currentKeyword = qp.get('q') ?? '';
   let currentStatus = qp.get('status') ?? null;
   let currentCategoryId = qp.get('categoryId') ?? null;
-  const tagsParam = qp.get('tags');
+  const tagsParam = qp.get('tagIds');
   let currentTagIds = tagsParam ? tagsParam.split(',').filter(Boolean) : [];
   let currentSortKey = /** @type {SortKey} */ (qp.get('sort') ?? 'createdAt');
   let currentSortDir = /** @type {SortDir} */ (qp.get('dir') ?? 'desc');
@@ -321,20 +321,37 @@ export async function renderVideoListPage(container) {
   });
   filterContainer.appendChild(filterPanelEl);
 
+  /** 進行中のフェッチをキャンセルするための AbortController */
+  let currentFetchController = /** @type {AbortController|null} */ (null);
+
+  /** デバウンス用タイマー ID */
+  let debounceTimer = /** @type {ReturnType<typeof setTimeout>|null} */ (null);
+
   /**
-   * URL クエリパラメータを更新してからデータをフェッチする
+   * URL クエリパラメータを更新してからデータをフェッチする（デバウンスあり）
+   * @param {boolean} [immediate=false] - デバウンスをスキップして即時実行するか
    */
-  function syncUrlAndFetch() {
+  function syncUrlAndFetch(immediate = false) {
     setQueryParams({
       q: currentKeyword || null,
       status: currentStatus,
       categoryId: currentCategoryId,
-      tags: currentTagIds.length > 0 ? currentTagIds.join(',') : null,
+      tagIds: currentTagIds.length > 0 ? currentTagIds.join(',') : null,
       sort: currentSortKey !== 'createdAt' ? currentSortKey : null,
       dir: currentSortDir !== 'desc' ? currentSortDir : null,
       page: currentPage > 1 ? String(currentPage) : null,
     });
-    fetchAndRender(currentPage);
+
+    if (immediate) {
+      fetchAndRender(currentPage);
+      return;
+    }
+
+    if (debounceTimer !== null) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      fetchAndRender(currentPage);
+    }, 300);
   }
 
   /**
@@ -351,7 +368,7 @@ export async function renderVideoListPage(container) {
       currentSortKey = key;
       currentSortDir = dir;
       currentPage = 1;
-      syncUrlAndFetch();
+      syncUrlAndFetch(true);
     });
     controls.appendChild(countEl);
     controls.appendChild(sortEl);
@@ -382,7 +399,7 @@ export async function renderVideoListPage(container) {
     if (totalPages > 1) {
       const pagination = createPagination(currentPage, totalPages, (newPage) => {
         currentPage = newPage;
-        syncUrlAndFetch();
+        syncUrlAndFetch(true);
         pageEl.scrollIntoView({ behavior: 'smooth' });
       });
       content.appendChild(pagination);
@@ -421,6 +438,13 @@ export async function renderVideoListPage(container) {
    * @param {number} targetPage
    */
   async function fetchAndRender(targetPage) {
+    // 進行中のリクエストをキャンセル（レースコンディション防止）
+    if (currentFetchController !== null) {
+      currentFetchController.abort();
+    }
+    const controller = new AbortController();
+    currentFetchController = controller;
+
     clearChildren(content);
     content.appendChild(createSkeletonGrid(8));
 
@@ -434,7 +458,11 @@ export async function renderVideoListPage(container) {
         sortKey: currentSortKey,
         sortDir: currentSortDir,
       });
-      const result = await api.get(url);
+      const result = await api.get(url, controller.signal);
+
+      // キャンセルされた場合は描画しない
+      if (controller.signal.aborted) return;
+
       const videos = result.items ?? [];
       const totalCount = result.totalCount ?? 0;
       currentPage = result.page ?? targetPage;
@@ -443,7 +471,9 @@ export async function renderVideoListPage(container) {
 
       renderControls(totalCount);
       renderVideoContent(videos, hasActiveSearch, totalPages, targetPage);
-    } catch (_err) {
+    } catch (err) {
+      // AbortError はキャンセル扱いのため無視
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       renderFetchError(targetPage);
     }
   }

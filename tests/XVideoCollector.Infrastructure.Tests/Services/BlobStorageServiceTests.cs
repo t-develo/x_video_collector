@@ -13,6 +13,7 @@ public sealed class BlobStorageServiceTests
         _mock.Setup(s => s.UploadVideoAsync(
                 It.IsAny<Stream>(),
                 It.IsAny<string>(),
+                It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync("videos/test.mp4");
 
@@ -20,6 +21,29 @@ public sealed class BlobStorageServiceTests
 
         Assert.False(string.IsNullOrEmpty(result));
         Assert.Equal("videos/test.mp4", result);
+    }
+
+    [Theory]
+    [InlineData("video/mp4")]
+    [InlineData("video/webm")]
+    [InlineData("video/quicktime")]
+    public async Task UploadVideoAsync_AcceptsCustomContentType(string contentType)
+    {
+        _mock.Setup(s => s.UploadVideoAsync(
+                It.IsAny<Stream>(),
+                It.IsAny<string>(),
+                contentType,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync("videos/test.mp4");
+
+        var result = await _mock.Object.UploadVideoAsync(Stream.Null, "test.mp4", contentType);
+
+        Assert.Equal("videos/test.mp4", result);
+        _mock.Verify(s => s.UploadVideoAsync(
+            It.IsAny<Stream>(),
+            It.IsAny<string>(),
+            contentType,
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

@@ -1,8 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using XVideoCollector.Application;
+using XVideoCollector.Functions.Helpers;
 using XVideoCollector.Functions.Middleware;
 using XVideoCollector.Infrastructure;
 
@@ -19,8 +18,9 @@ var host = new HostBuilder()
 
         services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
         {
-            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
-            options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            foreach (var converter in FunctionHelper.JsonOptions.Converters)
+                options.SerializerOptions.Converters.Add(converter);
+            options.SerializerOptions.PropertyNamingPolicy = FunctionHelper.JsonOptions.PropertyNamingPolicy;
         });
     })
     .Build();

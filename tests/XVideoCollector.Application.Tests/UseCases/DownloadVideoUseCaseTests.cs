@@ -83,4 +83,57 @@ public sealed class DownloadVideoUseCaseTests
         Assert.Equal(VideoStatus.Failed, video.Status);
         Assert.Equal(errorMessage, video.FailureReason);
     }
+
+    [Theory]
+    [InlineData("video.mp4", "video/mp4")]
+    [InlineData("video.webm", "video/webm")]
+    [InlineData("video.mov", "video/quicktime")]
+    [InlineData("video.mkv", "video/x-matroska")]
+    [InlineData("video.unknown", "video/mp4")]
+    public async Task ExecuteAsync_VideoDownloaded_UsesCorrectContentType(
+        string fileName, string expectedContentType)
+    {
+        // Arrange
+        var video = Video.Create(
+            TweetUrl.Create("https://x.com/u/status/99"),
+            VideoTitle.Create("Content Type Video"),
+            TimeProvider.System);
+
+        // ユニークな一時ディレクトリを作成してファイル競合を防ぐ
+        var tempDir = Path.Combine(Path.GetTempPath(), $"xvc_test_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var tempFile = Path.Combine(tempDir, fileName);
+        await File.WriteAllBytesAsync(tempFile, []);
+
+        try
+        {
+            _videoRepoMock
+                .Setup(r => r.GetByIdAsync(video.Id, default))
+                .ReturnsAsync(video);
+            _downloadMock
+                .Setup(d => d.DownloadAsync(It.IsAny<string>(), default))
+                .ReturnsAsync(new VideoDownloadResult(tempFile, 30, 1024));
+            _blobMock
+                .Setup(b => b.UploadVideoAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(), default))
+                .ReturnsAsync("videos/test.mp4");
+            _thumbnailMock
+                .Setup(t => t.GenerateFromVideoAsync(It.IsAny<string>(), default))
+                .ReturnsAsync((Stream?)null);
+
+            // Act
+            await _sut.ExecuteAsync(video.Id);
+
+            // Assert
+            _blobMock.Verify(b => b.UploadVideoAsync(
+                It.IsAny<Stream>(),
+                It.IsAny<string>(),
+                expectedContentType,
+                default), Times.Once);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
 }

@@ -83,4 +83,54 @@ public sealed class DownloadVideoUseCaseTests
         Assert.Equal(VideoStatus.Failed, video.Status);
         Assert.Equal(errorMessage, video.FailureReason);
     }
+
+    [Theory]
+    [InlineData("video.mp4", "video/mp4")]
+    [InlineData("video.webm", "video/webm")]
+    [InlineData("video.mov", "video/quicktime")]
+    [InlineData("video.mkv", "video/x-matroska")]
+    [InlineData("video.unknown", "video/mp4")]
+    public async Task ExecuteAsync_VideoDownloaded_UsesCorrectContentType(
+        string fileName, string expectedContentType)
+    {
+        // Arrange
+        var video = Video.Create(
+            TweetUrl.Create("https://x.com/u/status/99"),
+            VideoTitle.Create("Content Type Video"),
+            TimeProvider.System);
+
+        var tempFile = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}_{fileName}");
+        await File.WriteAllBytesAsync(tempFile, []);
+
+        try
+        {
+            _videoRepoMock
+                .Setup(r => r.GetByIdAsync(video.Id, default))
+                .ReturnsAsync(video);
+            _downloadMock
+                .Setup(d => d.DownloadAsync(It.IsAny<string>(), default))
+                .ReturnsAsync(new VideoDownloadResult(tempFile, 30, 1024));
+            _blobMock
+                .Setup(b => b.UploadVideoAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(), default))
+                .ReturnsAsync("videos/test.mp4");
+            _thumbnailMock
+                .Setup(t => t.GenerateFromVideoAsync(It.IsAny<string>(), default))
+                .ReturnsAsync((Stream?)null);
+
+            // Act
+            await _sut.ExecuteAsync(video.Id);
+
+            // Assert
+            _blobMock.Verify(b => b.UploadVideoAsync(
+                It.IsAny<Stream>(),
+                It.IsAny<string>(),
+                expectedContentType,
+                default), Times.Once);
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+                File.Delete(tempFile);
+        }
+    }
 }

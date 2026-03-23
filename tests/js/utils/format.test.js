@@ -37,8 +37,8 @@ describe('format utils', () => {
       expect(formatDuration(3661)).toBe('1:01:01');
     });
 
-    it('0 秒は "00:00" を返す', () => {
-      expect(formatDuration(0)).toBe('00:00');
+    it('0 秒は "不明" を返す（未取得の場合）', () => {
+      expect(formatDuration(0)).toBe('不明');
     });
 
     it('負の値は "--:--" を返す', () => {

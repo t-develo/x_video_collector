@@ -20,8 +20,9 @@ internal sealed class BlobStorageService : IBlobStorageService
     public async Task<string> UploadVideoAsync(
         Stream stream,
         string blobName,
+        string contentType = "video/mp4",
         CancellationToken cancellationToken = default)
-        => await UploadAsync(_options.VideoContainerName, stream, blobName, "video/mp4", cancellationToken);
+        => await UploadAsync(_options.VideoContainerName, stream, blobName, contentType, cancellationToken);
 
     public async Task<string> UploadThumbnailAsync(
         Stream stream,

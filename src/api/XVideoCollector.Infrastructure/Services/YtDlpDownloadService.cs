@@ -44,7 +44,7 @@ public sealed class YtDlpDownloadService(
                     $"yt-dlp failed with exit code {exitCode}: {stderr}");
             }
 
-            return BuildResult(tempDir);
+            return await BuildResultAsync(tempDir, cancellationToken);
         }
         catch
         {
@@ -88,9 +88,46 @@ public sealed class YtDlpDownloadService(
         return sb.ToString();
     }
 
+    internal async Task<int> GetDurationSecondsAsync(
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        var arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{filePath}\"";
+
+        try
+        {
+            var (exitCode, stdout, _) = await RunProcessAsync(
+                _options.FfprobePath, arguments, cancellationToken);
+
+            if (exitCode != 0)
+            {
+                logger.LogWarning("ffprobe failed (exit={ExitCode}) for {FilePath}", exitCode, filePath);
+                return 0;
+            }
+
+            var trimmed = stdout.Trim();
+            if (double.TryParse(trimmed,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var seconds))
+            {
+                return (int)Math.Round(seconds);
+            }
+
+            logger.LogWarning("ffprobe returned unexpected output: {Output}", trimmed);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to get duration via ffprobe for {FilePath}", filePath);
+            return 0;
+        }
+    }
+
     private async Task<(int ExitCode, string Stdout, string Stderr)> RunProcessAsync(
         string fileName, string arguments, CancellationToken cancellationToken)
     {
+        var processLabel = Path.GetFileName(fileName);
         logger.LogInformation("Starting: {FileName} {Arguments}", fileName, arguments);
 
         using var process = new Process
@@ -114,7 +151,7 @@ public sealed class YtDlpDownloadService(
             if (e.Data is not null)
             {
                 stdout.AppendLine(e.Data);
-                logger.LogDebug("[yt-dlp] {Line}", e.Data);
+                logger.LogDebug("[{Process}] {Line}", processLabel, e.Data);
             }
         };
         process.ErrorDataReceived += (_, e) =>
@@ -161,7 +198,9 @@ public sealed class YtDlpDownloadService(
         }
     }
 
-    private static VideoDownloadResult BuildResult(string outputDirectory)
+    private async Task<VideoDownloadResult> BuildResultAsync(
+        string outputDirectory,
+        CancellationToken cancellationToken)
     {
         var videoFile = Directory
             .GetFiles(outputDirectory)
@@ -173,10 +212,11 @@ public sealed class YtDlpDownloadService(
                 "Downloaded video file not found in output directory.");
 
         var fileInfo = new FileInfo(videoFile);
+        var durationSeconds = await GetDurationSecondsAsync(videoFile, cancellationToken);
 
         return new VideoDownloadResult(
             FilePath: videoFile,
-            DurationSeconds: 0,  // ffprobe 連携が必要な場合は別途実装
+            DurationSeconds: durationSeconds,
             FileSizeBytes: fileInfo.Length);
     }
 

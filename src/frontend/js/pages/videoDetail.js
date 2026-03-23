@@ -100,6 +100,33 @@ function showDeleteModal(page, videoId) {
   modal.appendChild(actions);
   overlay.appendChild(modal);
   page.appendChild(overlay);
+
+  // フォーカストラップ: モーダル内でフォーカスを循環させる
+  const focusableEls = /** @type {HTMLElement[]} */ ([cancelBtn, confirmBtn]);
+  cancelBtn.focus();
+
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      page.removeChild(overlay);
+      return;
+    }
+    if (e.key !== 'Tab') return;
+
+    const first = focusableEls[0];
+    const last = focusableEls[focusableEls.length - 1];
+
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
 }
 
 /**

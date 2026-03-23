@@ -13,6 +13,16 @@ public sealed class DownloadVideoUseCase(
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider) : IDownloadVideoUseCase
 {
+    private static string ResolveVideoContentType(string extension) =>
+        extension.ToLowerInvariant() switch
+        {
+            "mp4" => "video/mp4",
+            "webm" => "video/webm",
+            "mov" => "video/quicktime",
+            "mkv" => "video/x-matroska",
+            _ => "video/mp4",
+        };
+
     public async Task ExecuteAsync(
         Guid videoId,
         CancellationToken cancellationToken = default)
@@ -37,9 +47,11 @@ public sealed class DownloadVideoUseCase(
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
             using var videoStream = File.OpenRead(result.FilePath);
-            var blobName = $"videos/{video.Id}.mp4";
+            var fileExtension = Path.GetExtension(result.FilePath).TrimStart('.');
+            var contentType = ResolveVideoContentType(fileExtension);
+            var blobName = $"videos/{video.Id}.{(string.IsNullOrEmpty(fileExtension) ? "mp4" : fileExtension)}";
             var blobPath = await blobStorageService.UploadVideoAsync(
-                videoStream, blobName, cancellationToken);
+                videoStream, blobName, contentType, cancellationToken);
 
             string? thumbnailBlobPath = null;
             var thumbnailStream = await thumbnailService.GenerateFromVideoAsync(

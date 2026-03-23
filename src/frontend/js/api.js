@@ -52,10 +52,11 @@ export const api = {
   /**
    * GET リクエスト
    * @param {string} path
+   * @param {AbortSignal} [signal]
    * @returns {Promise<any>}
    */
-  get(path) {
-    return request(path);
+  get(path, signal) {
+    return request(path, signal ? { signal } : {});
   },
 
   /**

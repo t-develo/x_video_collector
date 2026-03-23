@@ -36,11 +36,13 @@ export function formatFileSize(bytes) {
 }
 
 /**
- * 秒数を mm:ss 形式に変換する
+ * 秒数を mm:ss 形式に変換する。
+ * 0 の場合は再生時間が未取得（ffprobe 失敗など）を意味し '不明' を返す。
  * @param {number} seconds
  * @returns {string}
  */
 export function formatDuration(seconds) {
+  if (seconds === 0) return '不明';
   if (!Number.isFinite(seconds) || seconds < 0) return '--:--';
 
   const totalSec = Math.floor(seconds);

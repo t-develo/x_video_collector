@@ -6,15 +6,12 @@ using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Text.Json;
 using XVideoCollector.Application.Exceptions;
+using XVideoCollector.Functions.Helpers;
 
 namespace XVideoCollector.Functions.Middleware;
 
 internal sealed class ExceptionMiddleware(ILogger<ExceptionMiddleware> logger) : IFunctionsWorkerMiddleware
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
 
     public async Task Invoke(FunctionContext context, FunctionExecutionDelegate next)
     {
@@ -49,7 +46,7 @@ internal sealed class ExceptionMiddleware(ILogger<ExceptionMiddleware> logger) :
         var body = JsonSerializer.Serialize(new ErrorResponse(
             (int)statusCode,
             statusCode.ToString(),
-            message), JsonOptions);
+            message), FunctionHelper.JsonOptions);
 
         await httpContext.Response.WriteAsync(body);
     }

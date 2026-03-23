@@ -99,7 +99,10 @@ public sealed class DownloadVideoUseCaseTests
             VideoTitle.Create("Content Type Video"),
             TimeProvider.System);
 
-        var tempFile = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}_{fileName}");
+        // ユニークな一時ディレクトリを作成してファイル競合を防ぐ
+        var tempDir = Path.Combine(Path.GetTempPath(), $"xvc_test_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var tempFile = Path.Combine(tempDir, fileName);
         await File.WriteAllBytesAsync(tempFile, []);
 
         try
@@ -129,8 +132,8 @@ public sealed class DownloadVideoUseCaseTests
         }
         finally
         {
-            if (File.Exists(tempFile))
-                File.Delete(tempFile);
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
         }
     }
 }

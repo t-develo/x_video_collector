@@ -10,10 +10,12 @@ internal sealed class BlobStorageService : IBlobStorageService
 {
     private readonly BlobServiceClient _serviceClient;
     private readonly BlobStorageOptions _options;
+    private readonly TimeProvider _timeProvider;
 
-    public BlobStorageService(IOptions<BlobStorageOptions> options)
+    public BlobStorageService(IOptions<BlobStorageOptions> options, TimeProvider timeProvider)
     {
         _options = options.Value;
+        _timeProvider = timeProvider;
         _serviceClient = new BlobServiceClient(_options.ConnectionString);
     }
 
@@ -62,7 +64,7 @@ internal sealed class BlobStorageService : IBlobStorageService
 
         var sasUri = blob.GenerateSasUri(
             Azure.Storage.Sas.BlobSasPermissions.Read,
-            DateTimeOffset.UtcNow.Add(expiry));
+            _timeProvider.GetUtcNow().Add(expiry));
 
         return Task.FromResult(sasUri.ToString());
     }

@@ -74,6 +74,22 @@ public sealed class AuthMiddlewareTests
     }
 
     [Fact]
+    public async Task Invoke_HealthEndpoint_CallsNextWithoutAuthHeader()
+    {
+        var config = new ConfigurationBuilder().Build();
+        var sut = new AuthMiddleware(config, NullLogger<AuthMiddleware>.Instance);
+        var (contextMock, httpContext) = CreateFunctionContextWithHttp();
+        httpContext.Request.Path = "/api/health";
+
+        var nextCalled = false;
+        Task Next(FunctionContext _) { nextCalled = true; return Task.CompletedTask; }
+
+        await sut.Invoke(contextMock.Object, Next);
+
+        Assert.True(nextCalled);
+    }
+
+    [Fact]
     public async Task Invoke_NullHttpContext_CallsNext()
     {
         var config = new ConfigurationBuilder().Build();

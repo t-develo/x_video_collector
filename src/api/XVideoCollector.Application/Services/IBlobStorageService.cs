@@ -7,4 +7,5 @@ public interface IBlobStorageService
     Task DeleteAsync(string blobPath, CancellationToken cancellationToken = default);
     Task<Stream> OpenReadAsync(string blobPath, CancellationToken cancellationToken = default);
     Task<string> GetSasUrlAsync(string blobPath, TimeSpan expiry, CancellationToken cancellationToken = default);
+    Task CheckConnectionAsync(CancellationToken cancellationToken = default);
 }

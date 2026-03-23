@@ -30,7 +30,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
     serverFarmId: appServicePlan.id
     httpsOnly: true
     siteConfig: {
-      netFrameworkVersion: 'v9.0'
+      netFrameworkVersion: 'v10.0'
       use32BitWorkerProcess: false
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
@@ -82,6 +82,10 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'YtDlp__FfmpegPath'
           value: 'D:\\home\\site\\wwwroot\\ffmpeg.exe'
+        }
+        {
+          name: 'YtDlp__FfprobePath'
+          value: 'D:\\home\\site\\wwwroot\\ffprobe.exe'
         }
         {
           name: 'YtDlp__TimeoutSeconds'

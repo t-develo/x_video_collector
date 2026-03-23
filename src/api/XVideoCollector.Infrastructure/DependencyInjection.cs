@@ -1,6 +1,9 @@
+using Microsoft.ApplicationInsights;
+using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using XVideoCollector.Application;
 using XVideoCollector.Application.Services;
 using XVideoCollector.Domain.Repositories;
@@ -47,6 +50,27 @@ public static class DependencyInjection
         services.AddScoped<IVideoDownloadService, YtDlpDownloadService>();
         services.AddScoped<IThumbnailService, FfmpegThumbnailService>();
         services.AddScoped<IDownloadQueueService, StorageQueueDownloadQueueService>();
+        services.AddScoped<IHealthCheckService, HealthCheckService>();
+        services.AddScoped<ITelemetryService, TelemetryService>();
+
+        // TelemetryClient: APPLICATIONINSIGHTS_CONNECTION_STRING が設定されている場合は
+        // 接続文字列を使用し、未設定時は空の設定（テレメトリ無効）でフォールバックする
+        services.TryAddSingleton(sp =>
+        {
+            var cfg = sp.GetRequiredService<IConfiguration>();
+            var aiConnectionString = cfg["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+            TelemetryConfiguration telemetryConfig;
+            if (string.IsNullOrEmpty(aiConnectionString))
+            {
+                telemetryConfig = new TelemetryConfiguration();
+            }
+            else
+            {
+                telemetryConfig = TelemetryConfiguration.CreateDefault();
+                telemetryConfig.ConnectionString = aiConnectionString;
+            }
+            return new TelemetryClient(telemetryConfig);
+        });
 
         services.AddSingleton(TimeProvider.System);
 

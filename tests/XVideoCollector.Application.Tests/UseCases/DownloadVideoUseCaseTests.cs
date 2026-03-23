@@ -11,21 +11,30 @@ namespace XVideoCollector.Application.Tests.UseCases;
 
 public sealed class DownloadVideoUseCaseTests
 {
-    private readonly Mock<IVideoRepository> _videoRepoMock = new();
-    private readonly Mock<IVideoDownloadService> _downloadMock = new();
-    private readonly Mock<IBlobStorageService> _blobMock = new();
-    private readonly Mock<IThumbnailService> _thumbnailMock = new();
-    private readonly Mock<IUnitOfWork> _unitOfWorkMock = new();
+    private readonly Mock<IVideoRepository> _videoRepoMock;
+    private readonly Mock<IVideoDownloadService> _downloadMock;
+    private readonly Mock<IBlobStorageService> _blobMock;
+    private readonly Mock<IThumbnailService> _thumbnailMock;
+    private readonly Mock<IUnitOfWork> _unitOfWorkMock;
+    private readonly Mock<ITelemetryService> _telemetryMock;
     private readonly DownloadVideoUseCase _sut;
 
     public DownloadVideoUseCaseTests()
     {
+        _videoRepoMock = new Mock<IVideoRepository>();
+        _downloadMock = new Mock<IVideoDownloadService>();
+        _blobMock = new Mock<IBlobStorageService>();
+        _thumbnailMock = new Mock<IThumbnailService>();
+        _unitOfWorkMock = new Mock<IUnitOfWork>();
+        _telemetryMock = new Mock<ITelemetryService>();
+
         _sut = new DownloadVideoUseCase(
             _videoRepoMock.Object,
             _downloadMock.Object,
             _blobMock.Object,
             _thumbnailMock.Object,
             _unitOfWorkMock.Object,
+            _telemetryMock.Object,
             TimeProvider.System);
     }
 
@@ -82,6 +91,10 @@ public sealed class DownloadVideoUseCaseTests
 
         Assert.Equal(VideoStatus.Failed, video.Status);
         Assert.Equal(errorMessage, video.FailureReason);
+
+        _telemetryMock.Verify(
+            t => t.TrackDownloadFailure(video.Id, It.IsAny<string>(), It.IsAny<TimeSpan>()),
+            Times.Once);
     }
 
     [Theory]
@@ -129,6 +142,10 @@ public sealed class DownloadVideoUseCaseTests
                 It.IsAny<string>(),
                 expectedContentType,
                 default), Times.Once);
+
+            _telemetryMock.Verify(
+                t => t.TrackDownloadSuccess(video.Id, It.IsAny<TimeSpan>(), It.IsAny<long>()),
+                Times.Once);
         }
         finally
         {

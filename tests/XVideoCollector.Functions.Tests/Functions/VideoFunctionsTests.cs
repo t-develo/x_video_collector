@@ -26,6 +26,8 @@ public sealed class VideoFunctionsTests
         DurationSeconds: 60,
         FileSizeBytes: 1024,
         CategoryId: null,
+        Notes: null,
+        FailureReason: null,
         Tags: [],
         CreatedAt: DateTimeOffset.UtcNow,
         UpdatedAt: DateTimeOffset.UtcNow);

@@ -14,6 +14,8 @@ public sealed record VideoDto(
     int? DurationSeconds,
     long? FileSizeBytes,
     Guid? CategoryId,
+    string? Notes,
+    string? FailureReason,
     IReadOnlyList<TagDto> Tags,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);

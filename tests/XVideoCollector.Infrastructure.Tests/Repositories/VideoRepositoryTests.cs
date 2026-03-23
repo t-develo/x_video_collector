@@ -105,7 +105,7 @@ public sealed class VideoRepositoryTests : IDisposable
         var pending = Video.Create(TweetUrl.Create("https://x.com/u/status/1"), VideoTitle.Create("Pending"), TimeProvider.System);
         var failing = Video.Create(TweetUrl.Create("https://x.com/u/status/2"), VideoTitle.Create("Failing"), TimeProvider.System);
         failing.StartDownloading(TimeProvider.System);
-        failing.MarkFailed(TimeProvider.System);
+        failing.MarkFailed(null, TimeProvider.System);
 
         await _sut.AddAsync(pending);
         await _sut.AddAsync(failing);
@@ -204,7 +204,7 @@ public sealed class VideoRepositoryTests : IDisposable
         var v1 = Video.Create(TweetUrl.Create("https://x.com/u/status/21"), VideoTitle.Create("V1"), tp);
         var v2 = Video.Create(TweetUrl.Create("https://x.com/u/status/22"), VideoTitle.Create("V2"), tp);
         v2.StartDownloading(tp);
-        v2.MarkFailed(tp);
+        v2.MarkFailed(null, tp);
 
         await _sut.AddAsync(v1);
         await _sut.AddAsync(v2);

@@ -60,4 +60,27 @@ public sealed class DownloadVideoUseCaseTests
         Assert.Equal(VideoStatus.Failed, video.Status);
         _videoRepoMock.Verify(r => r.UpdateAsync(video, default), Times.AtLeast(2));
     }
+
+    [Fact]
+    public async Task ExecuteAsync_DownloadFails_RecordsFailureReason()
+    {
+        var video = Video.Create(
+            TweetUrl.Create("https://x.com/u/status/78"),
+            VideoTitle.Create("Fail Reason Video"),
+            TimeProvider.System);
+        const string errorMessage = "yt-dlp: ERROR: Unable to extract video data";
+
+        _videoRepoMock
+            .Setup(r => r.GetByIdAsync(video.Id, default))
+            .ReturnsAsync(video);
+        _downloadMock
+            .Setup(d => d.DownloadAsync(It.IsAny<string>(), default))
+            .ThrowsAsync(new InvalidOperationException(errorMessage));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _sut.ExecuteAsync(video.Id));
+
+        Assert.Equal(VideoStatus.Failed, video.Status);
+        Assert.Equal(errorMessage, video.FailureReason);
+    }
 }

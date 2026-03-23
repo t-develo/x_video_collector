@@ -33,7 +33,7 @@ public sealed class RetryVideoDownloadUseCaseTests
             VideoTitle.Create("Test Video"),
             TimeProvider.System);
         video.StartDownloading(TimeProvider.System);
-        video.MarkFailed(TimeProvider.System);
+        video.MarkFailed(null, TimeProvider.System);
         return video;
     }
 

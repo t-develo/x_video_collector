@@ -5,6 +5,9 @@ namespace XVideoCollector.Domain.Entities;
 
 public sealed class Video
 {
+    public const int NotesMaxLength = 2000;
+    public const int FailureReasonMaxLength = 2000;
+
     public Guid Id { get; private set; }
     public TweetUrl TweetUrl { get; private set; }
     public VideoTitle Title { get; private set; }
@@ -14,6 +17,8 @@ public sealed class Video
     public int? DurationSeconds { get; private set; }
     public long? FileSizeBytes { get; private set; }
     public Guid? CategoryId { get; private set; }
+    public string? Notes { get; private set; }
+    public string? FailureReason { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
@@ -96,10 +101,11 @@ public sealed class Video
         DurationSeconds = durationSeconds;
         FileSizeBytes = fileSizeBytes;
         Status = VideoStatus.Ready;
+        FailureReason = null;
         UpdatedAt = timeProvider.GetUtcNow();
     }
 
-    public void MarkFailed(TimeProvider timeProvider)
+    public void MarkFailed(string? failureReason, TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
 
@@ -107,6 +113,7 @@ public sealed class Video
             throw new InvalidOperationException("Cannot mark a ready video as failed.");
 
         Status = VideoStatus.Failed;
+        FailureReason = failureReason;
         UpdatedAt = timeProvider.GetUtcNow();
     }
 
@@ -135,6 +142,17 @@ public sealed class Video
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         CategoryId = categoryId;
+        UpdatedAt = timeProvider.GetUtcNow();
+    }
+
+    public void UpdateNotes(string? notes, TimeProvider timeProvider)
+    {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
+        if (notes is not null && notes.Length > NotesMaxLength)
+            throw new ArgumentException($"Notes must not exceed {NotesMaxLength} characters.", nameof(notes));
+
+        Notes = notes;
         UpdatedAt = timeProvider.GetUtcNow();
     }
 }

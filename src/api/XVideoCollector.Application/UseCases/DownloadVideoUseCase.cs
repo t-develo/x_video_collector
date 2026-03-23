@@ -64,9 +64,9 @@ public sealed class DownloadVideoUseCase(
             await videoRepository.UpdateAsync(video, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        catch
+        catch (Exception ex)
         {
-            video.MarkFailed(timeProvider);
+            video.MarkFailed(ex.Message, timeProvider);
             await videoRepository.UpdateAsync(video, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
             throw;

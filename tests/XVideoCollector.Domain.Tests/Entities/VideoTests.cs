@@ -4,7 +4,7 @@ using XVideoCollector.Domain.ValueObjects;
 
 namespace XVideoCollector.Domain.Tests.Entities;
 
-public class VideoTests
+public sealed class VideoTests
 {
     private static TweetUrl MakeTweetUrl() =>
         TweetUrl.Create("https://x.com/user123/status/1234567890");
@@ -50,7 +50,7 @@ public class VideoTests
     {
         var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
         video.StartDownloading(TimeProvider.System);
-        video.MarkFailed(TimeProvider.System);
+        video.MarkFailed(null, TimeProvider.System);
 
         video.StartDownloading(TimeProvider.System);
 
@@ -116,9 +116,48 @@ public class VideoTests
         var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
         video.StartDownloading(TimeProvider.System);
 
-        video.MarkFailed(TimeProvider.System);
+        video.MarkFailed(null, TimeProvider.System);
 
         Assert.Equal(VideoStatus.Failed, video.Status);
+    }
+
+    [Fact]
+    public void MarkFailed_WithReason_RecordsFailureReason()
+    {
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        video.StartDownloading(TimeProvider.System);
+
+        video.MarkFailed("yt-dlp process exited with code 1", TimeProvider.System);
+
+        Assert.Equal(VideoStatus.Failed, video.Status);
+        Assert.Equal("yt-dlp process exited with code 1", video.FailureReason);
+    }
+
+    [Fact]
+    public void MarkFailed_WithNullReason_SetsFailureReasonToNull()
+    {
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        video.StartDownloading(TimeProvider.System);
+
+        video.MarkFailed(null, TimeProvider.System);
+
+        Assert.Null(video.FailureReason);
+    }
+
+    [Fact]
+    public void MarkReady_AfterFailed_ClearsFailureReason()
+    {
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        video.StartDownloading(TimeProvider.System);
+        video.MarkFailed("some error", TimeProvider.System);
+        video.ResetToPending(TimeProvider.System);
+        video.StartDownloading(TimeProvider.System);
+        video.StartProcessing(TimeProvider.System);
+
+        video.MarkReady(BlobPath.Create("videos/test.mp4"), null, 60, 1024, TimeProvider.System);
+
+        Assert.Equal(VideoStatus.Ready, video.Status);
+        Assert.Null(video.FailureReason);
     }
 
     [Fact]
@@ -129,7 +168,48 @@ public class VideoTests
         video.StartProcessing(TimeProvider.System);
         video.MarkReady(BlobPath.Create("videos/test.mp4"), null, 120, 1024, TimeProvider.System);
 
-        Assert.Throws<InvalidOperationException>(() => video.MarkFailed(TimeProvider.System));
+        Assert.Throws<InvalidOperationException>(() => video.MarkFailed(null, TimeProvider.System));
+    }
+
+    [Fact]
+    public void UpdateNotes_SetsNotes()
+    {
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+
+        video.UpdateNotes("this is a note", TimeProvider.System);
+
+        Assert.Equal("this is a note", video.Notes);
+    }
+
+    [Fact]
+    public void UpdateNotes_NullNotes_ClearsNotes()
+    {
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        video.UpdateNotes("existing note", TimeProvider.System);
+
+        video.UpdateNotes(null, TimeProvider.System);
+
+        Assert.Null(video.Notes);
+    }
+
+    [Fact]
+    public void UpdateNotes_ExceedsMaxLength_ThrowsArgumentException()
+    {
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        var tooLong = new string('a', Video.NotesMaxLength + 1);
+
+        Assert.Throws<ArgumentException>(() => video.UpdateNotes(tooLong, TimeProvider.System));
+    }
+
+    [Fact]
+    public void UpdateNotes_ExactlyMaxLength_Succeeds()
+    {
+        var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
+        var exactly = new string('a', Video.NotesMaxLength);
+
+        video.UpdateNotes(exactly, TimeProvider.System);
+
+        Assert.Equal(exactly, video.Notes);
     }
 
     [Fact]
@@ -156,7 +236,7 @@ public class VideoTests
     {
         var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
         video.StartDownloading(TimeProvider.System);
-        video.MarkFailed(TimeProvider.System);
+        video.MarkFailed(null, TimeProvider.System);
 
         video.ResetToPending(TimeProvider.System);
 
@@ -169,7 +249,7 @@ public class VideoTests
         var before = DateTimeOffset.UtcNow;
         var video = Video.Create(MakeTweetUrl(), MakeTitle(), TimeProvider.System);
         video.StartDownloading(TimeProvider.System);
-        video.MarkFailed(TimeProvider.System);
+        video.MarkFailed(null, TimeProvider.System);
 
         video.ResetToPending(TimeProvider.System);
 

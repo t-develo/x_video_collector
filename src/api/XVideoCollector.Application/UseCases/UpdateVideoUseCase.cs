@@ -24,6 +24,7 @@ public sealed class UpdateVideoUseCase(
         var title = VideoTitle.Create(request.Title);
         video.UpdateTitle(title, timeProvider);
         video.SetCategory(request.CategoryId, timeProvider);
+        video.UpdateNotes(request.Notes, timeProvider);
 
         // タグの同期（削除＋追加）と Video 更新を1トランザクションで実行
         await videoTagRepository.SyncByVideoIdAsync(video.Id, request.TagIds, cancellationToken);

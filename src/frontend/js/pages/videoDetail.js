@@ -328,9 +328,22 @@ function renderDetailContent(page, video, allTags, allCategories) {
   infoSection.appendChild(meta);
   page.appendChild(infoSection);
 
-  // Failed 状態の場合は再ダウンロードボタンを表示
+  // Failed 状態の場合は失敗理由と再ダウンロードボタンを表示
   if (video.status === 'Failed') {
     const retrySection = createElement('section', { className: 'detail-retry-section' });
+
+    if (video.failureReason) {
+      const reasonLabel = createElement('p', {
+        className: 'detail-failure-reason-label',
+        textContent: '失敗理由:',
+      });
+      const reasonText = createElement('pre', {
+        className: 'detail-failure-reason',
+        textContent: video.failureReason,
+      });
+      retrySection.appendChild(reasonLabel);
+      retrySection.appendChild(reasonText);
+    }
 
     const retryBtn = createElement('button', {
       className: 'detail-retry-btn',
@@ -420,6 +433,23 @@ function renderDetailContent(page, video, allTags, allCategories) {
   tagSection.appendChild(tagContainer);
   page.appendChild(tagSection);
 
+  // メモセクション
+  const notesSection = createElement('section', { className: 'detail-section' });
+  const notesLabel = createElement('h2', {
+    className: 'detail-section__title',
+    textContent: 'メモ',
+  });
+  notesSection.appendChild(notesLabel);
+
+  const notesTextarea = createElement('textarea', {
+    className: 'detail-notes-textarea',
+    placeholder: 'メモを入力（最大 2000 文字）',
+    maxLength: '2000',
+  });
+  notesTextarea.value = video.notes || '';
+  notesSection.appendChild(notesTextarea);
+  page.appendChild(notesSection);
+
   // 保存ボタン
   const saveBtn = createElement('button', {
     className: 'detail-save-btn',
@@ -432,12 +462,14 @@ function renderDetailContent(page, video, allTags, allCategories) {
     const categoryId = categorySelect.value || null;
     const tagIds = Array.from(selectedTagIds);
     const title = titleInput.value.trim() || null;
+    const notes = notesTextarea.value.trim() || null;
 
     try {
       await api.put(`/videos/${video.id}`, {
         title,
         categoryId,
         tagIds,
+        notes,
       });
       toast.success('動画情報を更新しました');
     } catch (err) {

@@ -103,7 +103,13 @@ export function createVideoCard(video, onClick) {
     textContent: video.title || '（タイトルなし）',
   });
   titleRow.appendChild(title);
-  titleRow.appendChild(createStatusBadge(video.status));
+
+  const badge = createStatusBadge(video.status);
+  if (video.status === 'Failed' && video.failureReason) {
+    badge.setAttribute('title', video.failureReason);
+    badge.setAttribute('aria-label', `失敗: ${video.failureReason}`);
+  }
+  titleRow.appendChild(badge);
   body.appendChild(titleRow);
 
   // タグ

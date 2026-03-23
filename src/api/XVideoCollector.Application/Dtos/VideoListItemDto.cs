@@ -10,5 +10,6 @@ public sealed record VideoListItemDto(
     string? ThumbnailBlobPath,
     int? DurationSeconds,
     Guid? CategoryId,
+    string? FailureReason,
     IReadOnlyList<TagDto> Tags,
     DateTimeOffset CreatedAt);

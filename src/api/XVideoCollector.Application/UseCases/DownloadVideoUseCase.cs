@@ -39,34 +39,15 @@ public sealed class DownloadVideoUseCase(
         var downloadStarted = timeProvider.GetUtcNow();
         try
         {
-            var result = await downloadService.DownloadAsync(
-                video.TweetUrl.Value, cancellationToken);
-
+            var result = await downloadService.DownloadAsync(video.TweetUrl.Value, cancellationToken);
             tempDir = Path.GetDirectoryName(result.FilePath);
 
             video.StartProcessing(timeProvider);
             await videoRepository.UpdateAsync(video, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            using var videoStream = File.OpenRead(result.FilePath);
-            var fileExtension = Path.GetExtension(result.FilePath).TrimStart('.');
-            var contentType = ResolveVideoContentType(fileExtension);
-            var blobName = $"videos/{video.Id}.{(string.IsNullOrEmpty(fileExtension) ? "mp4" : fileExtension)}";
-            var blobPath = await blobStorageService.UploadVideoAsync(
-                videoStream, blobName, contentType, cancellationToken);
-
-            string? thumbnailBlobPath = null;
-            var thumbnailStream = await thumbnailService.GenerateFromVideoAsync(
-                result.FilePath, cancellationToken);
-            if (thumbnailStream is not null)
-            {
-                await using (thumbnailStream)
-                {
-                    var thumbBlobName = $"thumbnails/{video.Id}.jpg";
-                    thumbnailBlobPath = await blobStorageService.UploadThumbnailAsync(
-                        thumbnailStream, thumbBlobName, cancellationToken);
-                }
-            }
+            var blobPath = await UploadVideoToBlobAsync(result.FilePath, video.Id, cancellationToken);
+            var thumbnailBlobPath = await UploadThumbnailToBlobAsync(result.FilePath, video.Id, cancellationToken);
 
             video.MarkReady(
                 BlobPath.Create(blobPath),
@@ -78,8 +59,7 @@ public sealed class DownloadVideoUseCase(
             await videoRepository.UpdateAsync(video, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var elapsed = timeProvider.GetUtcNow() - downloadStarted;
-            telemetryService.TrackDownloadSuccess(videoId, elapsed, result.FileSizeBytes);
+            telemetryService.TrackDownloadSuccess(videoId, timeProvider.GetUtcNow() - downloadStarted, result.FileSizeBytes);
         }
         catch (Exception ex)
         {
@@ -87,14 +67,32 @@ public sealed class DownloadVideoUseCase(
             await videoRepository.UpdateAsync(video, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var elapsed = timeProvider.GetUtcNow() - downloadStarted;
-            telemetryService.TrackDownloadFailure(videoId, ex.Message, elapsed);
+            telemetryService.TrackDownloadFailure(videoId, ex.Message, timeProvider.GetUtcNow() - downloadStarted);
             throw;
         }
         finally
         {
             if (tempDir is not null && Directory.Exists(tempDir))
                 Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    private async Task<string> UploadVideoToBlobAsync(string filePath, Guid videoId, CancellationToken cancellationToken)
+    {
+        using var stream = File.OpenRead(filePath);
+        var ext = Path.GetExtension(filePath).TrimStart('.');
+        var blobName = $"videos/{videoId}.{(string.IsNullOrEmpty(ext) ? "mp4" : ext)}";
+        return await blobStorageService.UploadVideoAsync(stream, blobName, ResolveVideoContentType(ext), cancellationToken);
+    }
+
+    private async Task<string?> UploadThumbnailToBlobAsync(string filePath, Guid videoId, CancellationToken cancellationToken)
+    {
+        var stream = await thumbnailService.GenerateFromVideoAsync(filePath, cancellationToken);
+        if (stream is null) return null;
+
+        await using (stream)
+        {
+            return await blobStorageService.UploadThumbnailAsync(stream, $"thumbnails/{videoId}.jpg", cancellationToken);
         }
     }
 }

@@ -5,7 +5,7 @@ using MsOptions = Microsoft.Extensions.Options;
 
 namespace XVideoCollector.Infrastructure.Tests.Services;
 
-public class FfmpegThumbnailServiceTests
+public sealed class FfmpegThumbnailServiceTests
 {
     private static FfmpegThumbnailService CreateService(YtDlpOptions? opts = null)
     {

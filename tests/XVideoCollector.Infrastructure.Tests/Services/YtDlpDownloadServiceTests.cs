@@ -5,7 +5,7 @@ using MsOptions = Microsoft.Extensions.Options;
 
 namespace XVideoCollector.Infrastructure.Tests.Services;
 
-public class YtDlpDownloadServiceTests
+public sealed class YtDlpDownloadServiceTests
 {
     private static YtDlpDownloadService CreateService(YtDlpOptions? opts = null)
     {

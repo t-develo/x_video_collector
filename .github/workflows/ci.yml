@@ -83,6 +83,9 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Restore
+        run: dotnet restore src/api/XVideoCollector.Functions/XVideoCollector.Functions.csproj
+
       - name: Publish Azure Functions
         run: |
           dotnet publish src/api/XVideoCollector.Functions/XVideoCollector.Functions.csproj \

@@ -37,6 +37,11 @@ internal sealed class BlobStorageService : IBlobStorageService
         await container.GetBlobClient(blobName).DeleteIfExistsAsync(cancellationToken: cancellationToken);
     }
 
+    public async Task CheckConnectionAsync(CancellationToken cancellationToken = default)
+    {
+        await _serviceClient.GetPropertiesAsync(cancellationToken);
+    }
+
     public async Task<Stream> OpenReadAsync(string blobPath, CancellationToken cancellationToken = default)
     {
         var (containerName, blobName) = ParseBlobPath(blobPath);

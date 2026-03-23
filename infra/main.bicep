@@ -23,6 +23,9 @@ param sqlAdminPassword string
 @description('Azure SQL Free Tier を使用するか。サブスクリプションに既存の Free Tier DB がある場合は false を指定')
 param sqlUseFreeLimit bool = true
 
+@description('アラート通知先メールアドレス（省略した場合アラートは作成されるがメール通知なし）')
+param alertEmailAddress string = ''
+
 var resourcePrefix = '${appName}-${environment}'
 var tags = {
   application: 'x-video-collector'
@@ -45,6 +48,7 @@ module appInsights 'modules/appinsights.bicep' = {
     location: location
     appName: resourcePrefix
     tags: tags
+    alertEmailAddress: alertEmailAddress
   }
 }
 

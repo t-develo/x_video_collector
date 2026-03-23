@@ -23,6 +23,14 @@ internal sealed class AuthMiddleware(
             return;
         }
 
+        // ヘルスチェックエンドポイントは認証をスキップ
+        var path = httpContext.Request.Path.Value ?? string.Empty;
+        if (path.Equals("/api/health", StringComparison.OrdinalIgnoreCase))
+        {
+            await next(context);
+            return;
+        }
+
         // 開発環境では認証をスキップ
         if (configuration.GetValue<bool>("SKIP_AUTH"))
         {

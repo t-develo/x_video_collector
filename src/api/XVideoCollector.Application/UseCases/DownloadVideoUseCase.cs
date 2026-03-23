@@ -11,6 +11,7 @@ public sealed class DownloadVideoUseCase(
     IBlobStorageService blobStorageService,
     IThumbnailService thumbnailService,
     IUnitOfWork unitOfWork,
+    ITelemetryService telemetryService,
     TimeProvider timeProvider) : IDownloadVideoUseCase
 {
     private static string ResolveVideoContentType(string extension) =>
@@ -35,6 +36,7 @@ public sealed class DownloadVideoUseCase(
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         string? tempDir = null;
+        var downloadStarted = timeProvider.GetUtcNow();
         try
         {
             var result = await downloadService.DownloadAsync(
@@ -75,12 +77,18 @@ public sealed class DownloadVideoUseCase(
 
             await videoRepository.UpdateAsync(video, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var elapsed = timeProvider.GetUtcNow() - downloadStarted;
+            telemetryService.TrackDownloadSuccess(videoId, elapsed, result.FileSizeBytes);
         }
         catch (Exception ex)
         {
             video.MarkFailed(ex.Message, timeProvider);
             await videoRepository.UpdateAsync(video, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var elapsed = timeProvider.GetUtcNow() - downloadStarted;
+            telemetryService.TrackDownloadFailure(videoId, ex.Message, elapsed);
             throw;
         }
         finally

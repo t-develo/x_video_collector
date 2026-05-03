@@ -23,14 +23,23 @@ public static class DependencyInjection
         var connectionString = configuration.GetConnectionString("SqlDb")
             ?? throw new InvalidOperationException("Connection string 'SqlDb' is not configured.");
 
-        services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(connectionString, sqlOptions =>
-            {
-                sqlOptions.EnableRetryOnFailure(
-                    maxRetryCount: 3,
-                    maxRetryDelay: TimeSpan.FromSeconds(5),
-                    errorNumbersToAdd: null);
-            }));
+        // SQLite はローカル開発用 (接続文字列が "Data Source=" で始まる場合)
+        if (connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
+            services.AddHostedService<SqliteEnsureCreatedService>();
+        }
+        else
+        {
+            services.AddDbContext<AppDbContext>(options =>
+                options.UseSqlServer(connectionString, sqlOptions =>
+                {
+                    sqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 3,
+                        maxRetryDelay: TimeSpan.FromSeconds(5),
+                        errorNumbersToAdd: null);
+                }));
+        }
 
         services.Configure<BlobStorageOptions>(
             configuration.GetSection(BlobStorageOptions.SectionName));

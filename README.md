@@ -227,6 +227,34 @@ func start
 }
 ```
 
+### Raspberry Pi で動かす
+
+買ってきたばかりの素の Raspberry Pi（Raspberry Pi OS / Debian 系）でアプリを動かす場合は、
+ランタイム（.NET 10 / Node.js 22）から外部バイナリ（yt-dlp / ffmpeg）まで一括導入する
+専用スクリプトを用意しています。
+
+```bash
+git clone https://github.com/t-develo/x_video_collector.git
+cd x_video_collector
+bash scripts/setup-raspi.sh   # ツール確認 → インストール → ビルド確認
+source ~/.bashrc              # PATH を反映
+bash scripts/start-dev.sh     # ローカル起動 → http://localhost:3000
+```
+
+`scripts/setup-raspi.sh` が行うこと:
+
+- OS / アーキテクチャ（arm64 / armhf / amd64）の自動判定
+- ベース依存パッケージの apt 導入（**リポジトリに無い場合は公式 tarball / 静的ビルドへ自動フォールバック**）
+- .NET 10 SDK（公式 `dotnet-install.sh`、ARM 対応）
+- Node.js 22（NodeSource → 失敗時 nodejs.org 公式 tarball）
+- yt-dlp / ffmpeg / ffprobe（アーキ別 ARM バイナリ）
+- Azure Functions Core Tools v4 / Azurite / dotnet-ef / `npm install`
+- SQLite を使う `local.settings.json` の生成と PATH 永続化
+
+> **対応アーキ:** arm64（Pi 3 以降 + 64bit OS を推奨）/ armhf / amd64。
+> armv6（Pi Zero / Pi 1）は .NET 非対応のため動作しません。
+> メモリの少ない Pi では func / Azurite / .NET の同時起動が重くなる場合があります。
+
 ## CI/CD
 
 ### CI（自動テスト・ビルド）

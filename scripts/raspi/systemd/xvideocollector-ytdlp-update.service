@@ -1,0 +1,10 @@
+[Unit]
+Description=Update yt-dlp for X Video Collector
+Documentation=https://github.com/t-develo/x_video_collector/blob/main/docs/raspberry-pi.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=__XVC_YTDLP__ -U
+SyslogIdentifier=xvideocollector-ytdlp-update

@@ -1,0 +1,41 @@
+[Unit]
+Description=X Video Collector (local standalone host)
+Documentation=https://github.com/t-develo/x_video_collector/blob/main/docs/raspberry-pi.md
+After=network-online.target
+Wants=network-online.target
+# 外付けドライブにメディアを置く場合、install.sh が RequiresMountsFor を drop-in で追加する
+
+[Service]
+Type=notify
+User=__XVC_USER__
+Group=__XVC_USER__
+WorkingDirectory=__XVC_APP_DIR__
+EnvironmentFile=__XVC_CONFIG_DIR__/xvideocollector.env
+ExecStart=__XVC_DOTNET__ __XVC_APP_DIR__/XVideoCollector.LocalHost.dll
+
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+# journald に出力する（journalctl -u xvideocollector -f で追跡できる）
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=xvideocollector
+
+# セキュリティ強化
+NoNewPrivileges=true
+PrivateDevices=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictSUIDSGID=true
+# yt-dlp の作業ディレクトリを実ディスクに固定するため PrivateTmp は使わない
+# （env の TMPDIR が指す __XVC_DATA_DIR__/tmp を使用する）
+PrivateTmp=false
+ReadWritePaths=__XVC_DATA_DIR__
+
+[Install]
+WantedBy=multi-user.target

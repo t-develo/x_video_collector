@@ -83,6 +83,11 @@ public sealed class YtDlpDownloadService(
         sb.Append("--convert-thumbnails jpg ");
         sb.Append($"--max-filesize {_options.MaxFileSizeMB}M ");
         sb.Append("--no-playlist ");
+
+        // X は多くの動画で認証を要求するため、cookies ファイルがあれば使用する
+        if (!string.IsNullOrWhiteSpace(_options.CookiesPath) && File.Exists(_options.CookiesPath))
+            sb.Append($"--cookies \"{_options.CookiesPath}\" ");
+
         sb.Append("--newline ");
         sb.Append($"\"{tweetUrl}\"");
         return sb.ToString();

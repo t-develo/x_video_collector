@@ -16,6 +16,12 @@ namespace XVideoCollector.Infrastructure;
 
 public static class DependencyInjection
 {
+    /// <summary>"Storage:Provider" にこの値を指定するとローカルファイルシステムを使用する。</summary>
+    public const string LocalStorageProvider = "Local";
+
+    /// <summary>"Queue:Provider" にこの値を指定するとプロセス内キューを使用する。</summary>
+    public const string InProcessQueueProvider = "InProcess";
+
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -50,16 +56,21 @@ public static class DependencyInjection
         services.Configure<QueueStorageOptions>(
             configuration.GetSection(QueueStorageOptions.SectionName));
 
+        services.Configure<LocalStorageOptions>(
+            configuration.GetSection(LocalStorageOptions.SectionName));
+
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IVideoRepository, VideoRepository>();
         services.AddScoped<ITagRepository, TagRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IVideoTagRepository, VideoTagRepository>();
-        services.AddScoped<IBlobStorageService, BlobStorageService>();
         services.AddScoped<IVideoDownloadService, YtDlpDownloadService>();
         services.AddScoped<IThumbnailService, FfmpegThumbnailService>();
-        services.AddScoped<IDownloadQueueService, StorageQueueDownloadQueueService>();
         services.AddScoped<IHealthCheckService, HealthCheckService>();
+
+        AddStorage(services, configuration);
+        AddDownloadQueue(services, configuration);
+
         services.AddScoped<ITelemetryService, TelemetryService>();
 
         // TelemetryClient: APPLICATIONINSIGHTS_CONNECTION_STRING が設定されている場合は
@@ -85,4 +96,44 @@ public static class DependencyInjection
 
         return services;
     }
+
+    /// <summary>
+    /// メディア保存先の実装を選択する。
+    /// 既定は Azure Blob Storage で、"Storage:Provider" に "Local" を指定した場合のみ
+    /// ローカルファイルシステム実装を使用する（Raspberry Pi 等のスタンドアロン運用）。
+    /// </summary>
+    private static void AddStorage(IServiceCollection services, IConfiguration configuration)
+    {
+        if (IsProvider(configuration, "Storage:Provider", LocalStorageProvider))
+        {
+            services.AddSingleton<LocalFileStorageService>();
+            services.AddSingleton<ILocalMediaAccessor>(sp => sp.GetRequiredService<LocalFileStorageService>());
+            services.AddScoped<IBlobStorageService>(sp => sp.GetRequiredService<LocalFileStorageService>());
+        }
+        else
+        {
+            services.AddScoped<IBlobStorageService, BlobStorageService>();
+        }
+    }
+
+    /// <summary>
+    /// ダウンロードキューの実装を選択する。
+    /// 既定は Azure Storage Queue で、"Queue:Provider" に "InProcess" を指定した場合のみ
+    /// プロセス内チャネル実装を使用する。
+    /// </summary>
+    private static void AddDownloadQueue(IServiceCollection services, IConfiguration configuration)
+    {
+        if (IsProvider(configuration, "Queue:Provider", InProcessQueueProvider))
+        {
+            services.AddSingleton<DownloadQueueChannel>();
+            services.AddScoped<IDownloadQueueService, InProcessDownloadQueueService>();
+        }
+        else
+        {
+            services.AddScoped<IDownloadQueueService, StorageQueueDownloadQueueService>();
+        }
+    }
+
+    private static bool IsProvider(IConfiguration configuration, string key, string expected)
+        => string.Equals(configuration[key], expected, StringComparison.OrdinalIgnoreCase);
 }

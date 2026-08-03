@@ -16,6 +16,13 @@ packages/
 # Azure Functions
 local.settings.json
 .azure/
+.azurite/
+
+# ローカル実行時のデータ（SQLite DB / ダウンロード済みメディア）
+*.db
+*.db-shm
+*.db-wal
+/media/
 
 # yt-dlp / ffmpeg binaries (Windows executables — not committed to repo)
 src/api/XVideoCollector.Functions/yt-dlp.exe

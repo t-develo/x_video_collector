@@ -33,6 +33,7 @@ Domain（中心）→ Application → Infrastructure → Functions（最外層�
 | `XVideoCollector.Application` | Domain のみ |
 | `XVideoCollector.Infrastructure` | Application, Domain |
 | `XVideoCollector.Functions` | Application, Infrastructure（DI 登録のみ） |
+| `XVideoCollector.LocalHost` | Application, Infrastructure（DI 登録のみ） |
 
 - 依存は常に外→内の一方向のみ
 - Domain に外部パッケージ参照を追加しない
@@ -47,7 +48,8 @@ XVideoCollector.sln
 │   │   ├── XVideoCollector.Domain/
 │   │   ├── XVideoCollector.Application/
 │   │   ├── XVideoCollector.Infrastructure/
-│   │   └── XVideoCollector.Functions/
+│   │   ├── XVideoCollector.Functions/      # Azure Functions（本番）
+│   │   └── XVideoCollector.LocalHost/      # ラズパイ用 ASP.NET Core 自己ホスト
 │   └── frontend/
 │       ├── index.html
 │       ├── css/
@@ -57,10 +59,13 @@ XVideoCollector.sln
 │   ├── XVideoCollector.Domain.Tests/
 │   ├── XVideoCollector.Application.Tests/
 │   ├── XVideoCollector.Infrastructure.Tests/
-│   └── XVideoCollector.Functions.Tests/
+│   ├── XVideoCollector.Functions.Tests/
+│   └── XVideoCollector.LocalHost.Tests/
 ├── infra/
 │   ├── main.bicep
 │   └── parameters.json
+├── scripts/
+│   └── raspi/                              # ラズパイ用インストール・systemd ユニット
 └── docs/
     └── sprints/
 ```
@@ -115,6 +120,8 @@ feature/sprint{N}/{実装内容}
 - 複数リポジトリにまたがる操作は `IUnitOfWork` パターンで1トランザクションにまとめる（Repository 内で個別に `SaveChangesAsync` しない）
 - `EF.Functions.Like` 使用時は LIKE ワイルドカード文字（`%`, `_`）をエスケープする
 - Azure Functions Consumption Plan では fire-and-forget（`Task.Run` 放置）を禁止する。非同期処理は Queue Trigger 等のメッセージング経由で実行する
+  - このルールはホストがいつでも停止しうる Consumption Plan が対象。常駐する `XVideoCollector.LocalHost` では `BackgroundService`（`DownloadWorker`）で処理してよい。ただしプロセス内キューは再起動で揮発するため、DB を走査して未処理を拾い直す復旧経路を必ず用意する
+- 値オブジェクトを `HasConversion` でマッピングしたプロパティに対し、クエリ内で `.Value` へアクセスしない（SQL に変換できず実行時に失敗する）。部分一致等が必要な場合は `ComplexProperty` でマッピングする
 
 ### Vanilla JS (ES2022+)
 
@@ -149,6 +156,7 @@ feature/sprint{N}/{実装内容}
 - テスト名と内容を一致させる（名前と異なるアサーションを書かない）
 - テンプレート残骸（空の `UnitTest1.cs` 等）は削除する
 - 境界値テスト（0件、1件、ちょうど pageSize 件等）を必ず含める
+- リポジトリのテストに EF Core InMemory プロバイダーを使わない。クライアント評価のため SQL 変換の不具合を検出できない。SQLite（`Filename=:memory:`）を使うこと
 
 ### Vanilla JS (Vitest + jsdom)
 

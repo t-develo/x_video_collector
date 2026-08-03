@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using XVideoCollector.Domain.Entities;
 using XVideoCollector.Domain.Repositories;
@@ -8,16 +9,24 @@ namespace XVideoCollector.Infrastructure.Tests.Repositories;
 
 public sealed class CategoryRepositoryTests : IDisposable
 {
+    private readonly SqliteConnection _connection;
     private readonly AppDbContext _db;
     private readonly ICategoryRepository _sut;
 
     public CategoryRepositoryTests()
     {
+        // InMemory プロバイダーはクライアント評価のため SQL 変換の不具合を検出できない。
+        // 本番 (SQL Server) / ラズパイ (SQLite) と同じリレーショナル変換を検証するため
+        // SQLite のインメモリ DB を使用する。
+        _connection = new SqliteConnection("Filename=:memory:");
+        _connection.Open();
+
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseSqlite(_connection)
             .Options;
 
         _db = new AppDbContext(options);
+        _db.Database.EnsureCreated();
         _sut = new CategoryRepository(_db);
     }
 
@@ -80,5 +89,9 @@ public sealed class CategoryRepositoryTests : IDisposable
         Assert.Equal(5, result.SortOrder);
     }
 
-    public void Dispose() => _db.Dispose();
+    public void Dispose()
+    {
+        _db.Dispose();
+        _connection.Dispose();
+    }
 }

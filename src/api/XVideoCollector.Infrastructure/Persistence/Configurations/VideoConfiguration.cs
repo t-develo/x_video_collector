@@ -24,12 +24,17 @@ internal sealed class VideoConfiguration : IEntityTypeConfiguration<Video>
                 v => TweetUrl.Create(v))
             .IsRequired();
 
-        builder.Property(v => v.Title)
-            .HasMaxLength(VideoTitle.MaxLength)
-            .HasConversion(
-                v => v.Value,
-                v => VideoTitle.Create(v))
-            .IsRequired();
+        // Title は複合型としてマッピングする。
+        // 値コンバーターでは v.Title.Value が SQL に変換できず、
+        // キーワード検索 (LIKE) やタイトル並べ替えがリレーショナルプロバイダーで失敗するため。
+        // 列名は "Title" のままなのでスキーマは変わらない。
+        builder.ComplexProperty(v => v.Title, title =>
+        {
+            title.Property(t => t.Value)
+                .HasColumnName("Title")
+                .HasMaxLength(VideoTitle.MaxLength)
+                .IsRequired();
+        });
 
         builder.Property(v => v.Status)
             .HasConversion(new EnumToStringConverter<VideoStatus>())

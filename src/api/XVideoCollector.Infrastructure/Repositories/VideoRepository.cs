@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using XVideoCollector.Domain.Entities;
 using XVideoCollector.Domain.Enums;
 using XVideoCollector.Domain.Repositories;
+using XVideoCollector.Domain.ValueObjects;
 using XVideoCollector.Infrastructure.Persistence;
 
 namespace XVideoCollector.Infrastructure.Repositories;
@@ -48,9 +49,29 @@ internal sealed class VideoRepository(AppDbContext db) : IVideoRepository
         return (videos, totalCount);
     }
 
-    public async Task<Video?> FindByTweetIdAsync(string tweetId, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 正規化済みのツイート URL で完全一致検索する。
+    /// TweetUrl は値コンバーターでマッピングされているため部分一致は SQL に変換できない。
+    /// TweetUrl.Create は必ず "https://x.com/{user}/status/{id}" に正規化するので、
+    /// 完全一致でユニークインデックスをそのまま利用できる。
+    /// </summary>
+    public async Task<Video?> FindByTweetUrlAsync(TweetUrl tweetUrl, CancellationToken cancellationToken = default)
         => await db.Videos
-            .FirstOrDefaultAsync(v => v.TweetUrl.Value.Contains($"/status/{tweetId}"), cancellationToken);
+            .FirstOrDefaultAsync(v => v.TweetUrl == tweetUrl, cancellationToken);
+
+    public async Task<IReadOnlyList<Video>> GetByStatusesAsync(
+        IReadOnlyCollection<VideoStatus> statuses,
+        DateTimeOffset updatedBefore,
+        CancellationToken cancellationToken = default)
+    {
+        if (statuses.Count == 0)
+            return [];
+
+        return await db.Videos
+            .Where(v => statuses.Contains(v.Status) && v.UpdatedAt < updatedBefore)
+            .OrderBy(v => v.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
 
     public async Task<VideoStats> GetStatsAsync(CancellationToken cancellationToken = default)
     {

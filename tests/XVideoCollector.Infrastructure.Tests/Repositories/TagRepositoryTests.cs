@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using XVideoCollector.Domain.Entities;
 using XVideoCollector.Domain.Enums;
@@ -9,16 +10,24 @@ namespace XVideoCollector.Infrastructure.Tests.Repositories;
 
 public sealed class TagRepositoryTests : IDisposable
 {
+    private readonly SqliteConnection _connection;
     private readonly AppDbContext _db;
     private readonly ITagRepository _sut;
 
     public TagRepositoryTests()
     {
+        // InMemory プロバイダーはクライアント評価のため SQL 変換の不具合を検出できない。
+        // 本番 (SQL Server) / ラズパイ (SQLite) と同じリレーショナル変換を検証するため
+        // SQLite のインメモリ DB を使用する。
+        _connection = new SqliteConnection("Filename=:memory:");
+        _connection.Open();
+
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseSqlite(_connection)
             .Options;
 
         _db = new AppDbContext(options);
+        _db.Database.EnsureCreated();
         _sut = new TagRepository(_db);
     }
 
@@ -81,5 +90,9 @@ public sealed class TagRepositoryTests : IDisposable
         Assert.Equal(TagColor.Purple, result.Color);
     }
 
-    public void Dispose() => _db.Dispose();
+    public void Dispose()
+    {
+        _db.Dispose();
+        _connection.Dispose();
+    }
 }

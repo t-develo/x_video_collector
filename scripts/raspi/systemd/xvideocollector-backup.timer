@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily backup of X Video Collector database
+Documentation=https://github.com/t-develo/x_video_collector/blob/main/docs/raspberry-pi.md
+
+[Timer]
+OnCalendar=daily
+# 起動していなかった間に実行時刻を過ぎていた場合は起動後に実行する
+Persistent=true
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target

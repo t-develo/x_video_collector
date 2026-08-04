@@ -65,7 +65,7 @@ public sealed class RegisterVideoUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_DuplicateTweetId_ThrowsDuplicateTweetUrlException()
+    public async Task ExecuteAsync_DuplicateTweetUrl_ThrowsDuplicateTweetUrlException()
     {
         var existingVideo = Video.Create(
             TweetUrl.Create("https://x.com/user/status/123456789"),
@@ -73,7 +73,7 @@ public sealed class RegisterVideoUseCaseTests
             TimeProvider.System);
 
         _videoRepoMock
-            .Setup(r => r.FindByTweetIdAsync("123456789", default))
+            .Setup(r => r.FindByTweetUrlAsync(TweetUrl.Create("https://x.com/user/status/123456789"), default))
             .ReturnsAsync(existingVideo);
 
         var request = new RegisterVideoRequest(
@@ -92,7 +92,7 @@ public sealed class RegisterVideoUseCaseTests
     public async Task ExecuteAsync_UniqueUrl_CallsAddAndSave()
     {
         _videoRepoMock
-            .Setup(r => r.FindByTweetIdAsync(It.IsAny<string>(), default))
+            .Setup(r => r.FindByTweetUrlAsync(It.IsAny<TweetUrl>(), default))
             .ReturnsAsync((Video?)null);
 
         var request = new RegisterVideoRequest(

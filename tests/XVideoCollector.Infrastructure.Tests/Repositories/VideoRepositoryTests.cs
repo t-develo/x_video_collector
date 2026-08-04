@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using XVideoCollector.Domain.Entities;
 using XVideoCollector.Domain.Enums;
@@ -10,16 +11,24 @@ namespace XVideoCollector.Infrastructure.Tests.Repositories;
 
 public sealed class VideoRepositoryTests : IDisposable
 {
+    private readonly SqliteConnection _connection;
     private readonly AppDbContext _db;
     private readonly IVideoRepository _sut;
 
     public VideoRepositoryTests()
     {
+        // InMemory プロバイダーはクライアント評価のため SQL 変換の不具合を検出できない。
+        // 本番 (SQL Server) / ラズパイ (SQLite) と同じリレーショナル変換を検証するため
+        // SQLite のインメモリ DB を使用する。
+        _connection = new SqliteConnection("Filename=:memory:");
+        _connection.Open();
+
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseSqlite(_connection)
             .Options;
 
         _db = new AppDbContext(options);
+        _db.Database.EnsureCreated();
         _sut = new VideoRepository(_db);
     }
 
@@ -118,7 +127,7 @@ public sealed class VideoRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task FindByTweetIdAsync_WhenExists_ReturnsVideo()
+    public async Task FindByTweetUrlAsync_WhenExists_ReturnsVideo()
     {
         var video = Video.Create(
             TweetUrl.Create("https://x.com/user/status/987654321"),
@@ -127,22 +136,22 @@ public sealed class VideoRepositoryTests : IDisposable
         await _sut.AddAsync(video);
         await _db.SaveChangesAsync();
 
-        var result = await _sut.FindByTweetIdAsync("987654321");
+        var result = await _sut.FindByTweetUrlAsync(TweetUrl.Create("https://x.com/user/status/987654321"));
 
         Assert.NotNull(result);
         Assert.Equal(video.Id, result.Id);
     }
 
     [Fact]
-    public async Task FindByTweetIdAsync_WhenNotExists_ReturnsNull()
+    public async Task FindByTweetUrlAsync_WhenNotExists_ReturnsNull()
     {
-        var result = await _sut.FindByTweetIdAsync("nonexistent");
+        var result = await _sut.FindByTweetUrlAsync(TweetUrl.Create("https://x.com/user/status/404404404"));
 
         Assert.Null(result);
     }
 
     [Fact]
-    public async Task FindByTweetIdAsync_WhenDifferentId_ReturnsNull()
+    public async Task FindByTweetUrlAsync_WhenDifferentId_ReturnsNull()
     {
         var video = Video.Create(
             TweetUrl.Create("https://x.com/user/status/111111111"),
@@ -151,7 +160,7 @@ public sealed class VideoRepositoryTests : IDisposable
         await _sut.AddAsync(video);
         await _db.SaveChangesAsync();
 
-        var result = await _sut.FindByTweetIdAsync("222222222");
+        var result = await _sut.FindByTweetUrlAsync(TweetUrl.Create("https://x.com/user/status/222222222"));
 
         Assert.Null(result);
     }
@@ -227,7 +236,11 @@ public sealed class VideoRepositoryTests : IDisposable
         Assert.Equal(0, stats.TotalFileSizeBytes);
     }
 
-    public void Dispose() => _db.Dispose();
+    public void Dispose()
+    {
+        _db.Dispose();
+        _connection.Dispose();
+    }
 }
 
 /// <summary>

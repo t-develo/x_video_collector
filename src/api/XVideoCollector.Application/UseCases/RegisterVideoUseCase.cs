@@ -20,7 +20,7 @@ public sealed class RegisterVideoUseCase(
 
         var tweetUrl = TweetUrl.Create(request.TweetUrl);
 
-        var existing = await videoRepository.FindByTweetIdAsync(tweetUrl.TweetId, cancellationToken);
+        var existing = await videoRepository.FindByTweetUrlAsync(tweetUrl, cancellationToken);
         if (existing is not null)
             throw new DuplicateTweetUrlException(tweetUrl.TweetId);
 

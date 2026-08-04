@@ -78,7 +78,8 @@ XVideoCollector.sln
 │   │   ├── XVideoCollector.Domain/         # エンティティ, 値オブジェクト, リポジトリI/F
 │   │   ├── XVideoCollector.Application/    # ユースケース, DTO, サービスI/F
 │   │   ├── XVideoCollector.Infrastructure/ # EF Core, Blob Storage, yt-dlp 実装
-│   │   └── XVideoCollector.Functions/      # Azure Functions エンドポイント
+│   │   ├── XVideoCollector.Functions/      # Azure Functions エンドポイント
+│   │   └── XVideoCollector.LocalHost/      # ラズパイ用 ASP.NET Core 自己ホスト
 │   └── frontend/
 │       ├── index.html                      # SPA エントリーポイント
 │       ├── css/                            # CSS カスタムプロパティによるテーマ管理
@@ -89,15 +90,18 @@ XVideoCollector.sln
 │   ├── XVideoCollector.Application.Tests/
 │   ├── XVideoCollector.Infrastructure.Tests/
 │   ├── XVideoCollector.Functions.Tests/
+│   ├── XVideoCollector.LocalHost.Tests/
 │   └── js/                                 # フロントエンドテスト（Vitest）
 ├── infra/
 │   ├── main.bicep                          # サブスクリプションスコープ IaC
 │   └── modules/                            # リソースモジュール（SQL, Storage, etc.）
 ├── scripts/
-│   └── setup.sh                            # 初期セットアップ自動化スクリプト
+│   ├── setup.sh                            # Azure 初期セットアップ自動化スクリプト
+│   └── raspi/                              # ラズパイ用インストール・systemd ユニット
 └── docs/
     ├── code-review.md                      # コードレビュー報告書
-    ├── deployment.md                       # デプロイ手順書
+    ├── deployment.md                       # Azure デプロイ手順書
+    ├── raspberry-pi.md                     # ラズパイ ローカル運用ガイド
     ├── improvement-proposal.md             # 改善提案書
     └── sprints/                            # スプリント計画書（Sprint 0〜14）
 ```
@@ -182,6 +186,38 @@ git push origin main  # → Deploy ワークフローが自動実行
 
 詳細な手動セットアップ手順は [docs/deployment.md](docs/deployment.md) を参照してください。
 
+### Raspberry Pi でのローカル運用（Azure 不要）
+
+Azure を使わず、Raspberry Pi 1 台で完結運用することもできます。
+API・フロントエンド配信・動画ダウンロードを 1 つの systemd サービスで動かし、
+データベースは SQLite、動画はローカルファイルシステムに保存します。
+
+```bash
+# Raspberry Pi 4/5 + 64bit OS (aarch64) 上で実行
+git clone https://github.com/t-develo/x_video_collector.git
+cd x_video_collector
+sudo bash scripts/raspi/install.sh
+```
+
+スクリプトが依存パッケージの導入からサービス登録・**再起動時の自動起動の有効化**まで行い、
+完了すると `http://<ラズパイのIP>:8080` でアクセスできます。
+
+| 役割 | Azure 構成 | ラズパイ構成 |
+|------|-----------|-------------|
+| API ホスト | Azure Functions | `XVideoCollector.LocalHost`（ASP.NET Core） |
+| フロント配信 | Static Web Apps | 同一プロセスの静的ファイル配信 |
+| データベース | Azure SQL Database | SQLite |
+| 動画・サムネイル | Blob Storage | ローカルファイルシステム |
+| ストリーミング URL | Blob SAS URL | HMAC 署名付き `/api/media/...` |
+| ダウンロード起動 | Storage Queue + Queue Trigger | プロセス内キュー + `BackgroundService` |
+| 認証 | Entra ID (SWA 組み込み) | なし（LAN 限定運用） |
+
+`Domain` / `Application` 層は両構成で共通で、切り替えは環境変数
+`Storage__Provider` と `Queue__Provider` のみで行います（既定値は Azure 構成）。
+
+セットアップ・運用・バックアップ・トラブルシューティングの詳細は
+[docs/raspberry-pi.md](docs/raspberry-pi.md) を参照してください。
+
 ### ローカル開発
 
 ```bash
@@ -263,6 +299,25 @@ func start
 | `YtDlp__FfmpegPath` | ffmpeg 実行ファイルパス |
 | `YtDlp__TimeoutSeconds` | ダウンロードタイムアウト秒数 |
 | `YtDlp__MaxFileSizeMB` | 最大ファイルサイズ (MB) |
+| `YtDlp__CookiesPath` | X のログイン cookies ファイル（任意。未設定なら `--cookies` を渡さない） |
+
+### ラズパイ ローカル運用の追加設定
+
+`Storage__Provider=Local` / `Queue__Provider=InProcess` を指定した場合のみ有効。
+未指定時は Azure 構成（Blob Storage + Storage Queue）が使われる。
+
+| 変数名 | 説明 |
+|--------|------|
+| `Storage__Provider` | `Local` でローカルファイルシステム、既定は `AzureBlob` |
+| `Queue__Provider` | `InProcess` でプロセス内キュー、既定は `AzureStorageQueue` |
+| `LocalStorage__RootPath` | 動画・サムネイルの保存ルートディレクトリ |
+| `LocalStorage__SigningKey` | 署名付きメディア URL の HMAC 鍵 |
+| `LocalStorage__MinimumFreeDiskMB` | この空き容量を下回るとダウンロードを中止する |
+| `DownloadWorker__SweepIntervalSeconds` | 未処理動画を DB から拾い直す間隔 |
+| `DownloadWorker__StaleAfterMinutes` | 実行中のまま滞留した動画を中断扱いにする時間 |
+| `SKIP_AUTH` | `true` で認証ヘッダの検査をバイパスする |
+
+詳細は [docs/raspberry-pi.md](docs/raspberry-pi.md) を参照。
 
 ### GitHub Secrets
 
@@ -280,7 +335,8 @@ func start
 | [CLAUDE.md](CLAUDE.md) | プロジェクトルール・コーディング規約 | — |
 | [docs/code-review.md](docs/code-review.md) | コードベースレビュー報告書（CRITICAL 3 / HIGH 5 / MEDIUM 8 / LOW 7） | → [改善提案書](docs/improvement-proposal.md) |
 | [docs/improvement-proposal.md](docs/improvement-proposal.md) | 改善提案書（Sprint 15〜20） | ← [レビュー報告書](docs/code-review.md) |
-| [docs/deployment.md](docs/deployment.md) | デプロイ手順書 | — |
+| [docs/deployment.md](docs/deployment.md) | Azure デプロイ手順書 | — |
+| [docs/raspberry-pi.md](docs/raspberry-pi.md) | Raspberry Pi ローカル運用ガイド | — |
 | [docs/sprints/](docs/sprints/) | Sprint 0〜14 計画書 | — |
 
 ## ライセンス

@@ -1,0 +1,16 @@
+[Unit]
+Description=Backup X Video Collector SQLite database
+Documentation=https://github.com/t-develo/x_video_collector/blob/main/docs/raspberry-pi.md
+
+[Service]
+Type=oneshot
+User=__XVC_USER__
+Group=__XVC_USER__
+EnvironmentFile=__XVC_CONFIG_DIR__/xvideocollector.env
+ExecStart=__XVC_SCRIPT_DIR__/backup.sh
+SyslogIdentifier=xvideocollector-backup
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=__XVC_DATA_DIR__

@@ -12,7 +12,8 @@ internal sealed class HealthCheckService(
     AppDbContext dbContext,
     IBlobStorageService blobStorageService,
     IOptions<YtDlpOptions> ytDlpOptions,
-    TimeProvider timeProvider) : IHealthCheckService
+    TimeProvider timeProvider,
+    ILocalMediaAccessor? localMediaAccessor = null) : IHealthCheckService
 {
 
     public async Task<HealthCheckResult> CheckAsync(CancellationToken cancellationToken = default)
@@ -24,6 +25,10 @@ internal sealed class HealthCheckService(
         RunSync(checks, "ytdlp", CheckYtDlp);
         RunSync(checks, "ffmpeg", CheckFfmpeg);
         RunSync(checks, "ffprobe", CheckFfprobe);
+
+        // ローカルストレージ運用時のみディスク空き容量を検査する
+        if (localMediaAccessor is not null)
+            RunSync(checks, "disk", () => CheckDisk(localMediaAccessor));
 
         var overallStatus = checks.Values.All(c => c.Status == HealthStatus.Healthy)
             ? HealthStatus.Healthy
@@ -106,6 +111,20 @@ internal sealed class HealthCheckService(
         return exists
             ? new HealthCheckEntry(HealthStatus.Healthy,path, sw.ElapsedMilliseconds)
             : new HealthCheckEntry(HealthStatus.Unhealthy,$"Binary not found: {path}", sw.ElapsedMilliseconds);
+    }
+
+    private static HealthCheckEntry CheckDisk(ILocalMediaAccessor accessor)
+    {
+        var sw = Stopwatch.StartNew();
+        var freeBytes = accessor.GetAvailableFreeSpaceBytes();
+        var minimumBytes = accessor.MinimumFreeSpaceBytes;
+        sw.Stop();
+
+        var description = $"free={freeBytes / 1024 / 1024}MB, minimum={minimumBytes / 1024 / 1024}MB";
+
+        return freeBytes >= minimumBytes
+            ? new HealthCheckEntry(HealthStatus.Healthy, description, sw.ElapsedMilliseconds)
+            : new HealthCheckEntry(HealthStatus.Unhealthy, $"Insufficient free disk space: {description}", sw.ElapsedMilliseconds);
     }
 
     private HealthCheckEntry CheckFfprobe()

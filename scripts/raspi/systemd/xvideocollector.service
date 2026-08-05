@@ -5,6 +5,11 @@ After=network-online.target
 Wants=network-online.target
 # 外付けドライブにメディアを置く場合、install.sh が RequiresMountsFor を drop-in で追加する
 
+# 設定ミス等の恒久的な失敗で無限に再起動し続けないようにする。
+# 5 分間に 5 回失敗したら failed で停止し、systemctl status に原因が残る。
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
 [Service]
 Type=notify
 User=__XVC_USER__
@@ -18,7 +23,7 @@ RestartSec=5
 TimeoutStopSec=30
 KillSignal=SIGTERM
 
-# journald に出力する（journalctl -u xvideocollector -f で追跡できる）
+# journald に出力する（journalctl --unit=xvideocollector -f で追跡できる）
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=xvideocollector

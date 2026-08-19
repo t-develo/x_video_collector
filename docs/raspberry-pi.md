@@ -125,10 +125,10 @@ http://<ホスト名>.local:8080     # avahi-daemon が動いている場合
 sudo systemctl status xvideocollector
 
 # ログ追跡（ダウンロードの進行状況もここに出る）
-sudo journalctl -u xvideocollector -f
+sudo journalctl --unit=xvideocollector -f
 
 # 直近のエラーだけ
-sudo journalctl -u xvideocollector -p err -n 50 --no-pager
+sudo journalctl --unit=xvideocollector -p err -n 50 --no-pager
 
 # 再起動 / 停止
 sudo systemctl restart xvideocollector
@@ -330,17 +330,49 @@ sudo systemctl enable --now avahi-daemon
 
 ```bash
 sudo systemctl status xvideocollector
-sudo journalctl -u xvideocollector -n 100 --no-pager
+sudo journalctl --unit=xvideocollector -n 100 --no-pager
 ```
 
 よくある原因:
 
 | 症状 | 対処 |
 |------|------|
+| `Failed to bind to address ...: address already in use` | ポート競合。下の「ポートが競合している場合」を参照 |
 | `LocalStorage:RootPath is not configured` | env の `LocalStorage__RootPath` が空。設定して再起動 |
 | `LocalStorage:SigningKey is not configured` | env の `LocalStorage__SigningKey` が空。任意のランダム文字列を設定 |
 | `Connection string 'SqlDb' is not configured` | env の `ConnectionStrings__SqlDb` が空 |
 | 外付けドライブ未マウントで起動しない | 想定動作（`RequiresMountsFor`）。`sudo mount -a` 後に再起動 |
+
+起動に失敗すると `systemctl status` は `activating (auto-restart)` と
+`code=killed, signal=ABRT` を表示する。これは systemd がプロセスを殺したのではなく、
+**アプリが未処理例外で abort した**という意味なので、原因は必ず `journalctl` の
+`Unhandled exception.` 以降に出ている。
+
+なお、5 分間に 5 回失敗するとユニットは `failed` で停止する
+（`StartLimitBurst`）。無限に再起動を繰り返して CPU を消費することはない。
+
+#### ポートが競合している場合
+
+他のプロセスが既定の 8080 を使っていると、Kestrel がバインドできず起動しない。
+
+```bash
+# 誰が使っているか調べる
+sudo ss -ltnp | grep ':8080'
+```
+
+占有プロセスを止めるか、別ポートに変更する。
+
+```bash
+# 別ポートへ変更（インストール済みの環境）
+sudo sed -i 's|^ASPNETCORE_URLS=.*|ASPNETCORE_URLS=http://0.0.0.0:8081|' \
+  /etc/xvideocollector/xvideocollector.env
+sudo systemctl restart xvideocollector
+
+# 未導入なら最初から別ポートで入れる
+sudo bash scripts/raspi/install.sh --port 8081
+```
+
+`install.sh` は導入前にポートの空きを確認し、塞がっていれば占有プロセスを表示して中断する。
 
 ### ダウンロードが失敗する
 

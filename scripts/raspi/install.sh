@@ -27,6 +27,9 @@ step()    { echo -e "\n${BOLD}━━━ $* ━━━${NC}"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+# shellcheck source=scripts/raspi/_common.sh
+source "${SCRIPT_DIR}/_common.sh"
+
 # ── 既定値 ─────────────────────────────────────────────────
 XVC_USER="xvc"
 APP_DIR="/opt/xvideocollector"
@@ -36,6 +39,7 @@ SCRIPT_INSTALL_DIR="/opt/xvideocollector/scripts"
 DOTNET_ROOT_DIR="/opt/dotnet"
 MEDIA_PATH=""
 PORT="8080"
+PORT_EXPLICIT=0
 SKIP_DEPS=0
 
 usage() {
@@ -55,7 +59,7 @@ USAGE
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --media-path) MEDIA_PATH="$2"; shift 2 ;;
-    --port)       PORT="$2"; shift 2 ;;
+    --port)       PORT="$2"; PORT_EXPLICIT=1; shift 2 ;;
     --user)       XVC_USER="$2"; shift 2 ;;
     --skip-deps)  SKIP_DEPS=1; shift ;;
     -h|--help)    usage; exit 0 ;;
@@ -63,7 +67,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ ! "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
+  err "--port には 1〜65535 の数値を指定してください: ${PORT}"
+  exit 1
+fi
+
 MEDIA_PATH="${MEDIA_PATH:-${DATA_DIR}/media}"
+ENV_FILE="${CONFIG_DIR}/xvideocollector.env"
+
+# 再インストール時、既存の env は上書きしないため、--port の明示指定が無ければ
+# 現在設定されているポートに合わせる（ポート確認と疎通確認をズレさせないため）
+if [[ $PORT_EXPLICIT -eq 0 && -f "$ENV_FILE" ]]; then
+  PORT="$(read_configured_port "$ENV_FILE")"
+fi
 
 # ── 事前チェック ───────────────────────────────────────────
 step "事前チェック"
@@ -86,6 +102,25 @@ if ! command -v systemctl &>/dev/null; then
   exit 1
 fi
 success "systemd 検出"
+
+# 依存導入や publish（数分かかる）の前にポートの空きを確認する。
+# 塞がったまま進めると最後の systemctl enable --now で必ず失敗する。
+# 稼働中・再起動ループ中のどちらも止める。
+# （発行中に旧プロセスが動いたままだと DLL を上書きすることになる）
+if [[ -f "/etc/systemd/system/${XVC_SERVICE}" ]]; then
+  info "既存の ${XVC_SERVICE} を停止します（再インストールのため）"
+  systemctl stop "$XVC_SERVICE" 2>/dev/null || true
+fi
+
+PORT_LISTENER="$(port_listener "$PORT")"
+if [[ -n "$PORT_LISTENER" ]]; then
+  err "ポート ${PORT} は既に使用されています: ${PORT_LISTENER}"
+  err "次のいずれかで解消してください:"
+  err "  1. 占有プロセスを停止する   sudo ss -ltnp | grep ':${PORT}'"
+  err "  2. 別のポートで導入する     sudo bash scripts/raspi/install.sh --port <空いているポート>"
+  exit 1
+fi
+success "ポート ${PORT} は空いています"
 
 # ── 依存パッケージ ─────────────────────────────────────────
 if [[ $SKIP_DEPS -eq 0 ]]; then
@@ -156,9 +191,8 @@ success "ディレクトリを作成しました (アプリ=${APP_DIR}, デー�
 # ── 設定ファイル ───────────────────────────────────────────
 step "設定ファイル"
 
-ENV_FILE="${CONFIG_DIR}/xvideocollector.env"
 if [[ -f "$ENV_FILE" ]]; then
-  warn "${ENV_FILE} は既に存在するため上書きしません（設定は保持されます）"
+  warn "${ENV_FILE} は既に存在するため上書きしません（設定は保持されます、ポート=${PORT}）"
 else
   SIGNING_KEY="$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)"
 
@@ -241,7 +275,11 @@ success "systemd ユニットを配置しました"
 step "サービス起動 / 自動起動の有効化"
 
 # enable --now = 今すぐ起動 + 次回以降のブート時に自動起動
-systemctl enable --now xvideocollector.service
+if ! systemctl enable --now "$XVC_SERVICE"; then
+  err "サービスの起動に失敗しました。原因は次のログを参照してください:"
+  dump_service_diagnostics
+  exit 1
+fi
 systemctl enable --now xvideocollector-ytdlp-update.timer
 systemctl enable --now xvideocollector-backup.timer
 success "サービスを起動し、再起動時の自動起動を有効化しました"
@@ -253,17 +291,28 @@ HEALTH_URL="http://127.0.0.1:${PORT}/api/health"
 HEALTH_OK=0
 for _ in $(seq 1 30); do
   if curl -sf -o /dev/null "$HEALTH_URL"; then HEALTH_OK=1; break; fi
+
+  # クラッシュして再起動を繰り返している場合は 60 秒待たずに打ち切る。
+  # auto-restart 中の状態は "activating" なので、状態だけでは判別できない。
+  # 直前に起動したばかりなので、再起動回数が 1 以上ならクラッシュしている。
+  SERVICE_STATE="$(systemctl is-active "$XVC_SERVICE" || true)"
+  RESTART_COUNT="$(systemctl show -p NRestarts --value "$XVC_SERVICE" 2>/dev/null || echo 0)"
+  if [[ "$SERVICE_STATE" == "failed" || "${RESTART_COUNT:-0}" -gt 0 ]]; then
+    err "サービスの起動に失敗しています (状態: ${SERVICE_STATE}, 再起動回数: ${RESTART_COUNT})"
+    dump_service_diagnostics
+    exit 1
+  fi
+
   sleep 2
 done
 
 if [[ $HEALTH_OK -eq 1 ]]; then
   success "ヘルスチェック OK"
 else
-  err "ヘルスチェックに失敗しました。詳細を確認してください:"
-  err "  systemctl status xvideocollector"
-  err "  journalctl -u xvideocollector -n 50 --no-pager"
+  err "ヘルスチェックに失敗しました:"
   curl -s "$HEALTH_URL" || true
   echo
+  dump_service_diagnostics
   exit 1
 fi
 
@@ -286,7 +335,7 @@ cat <<EOF
 
   ${BOLD}よく使うコマンド${NC}
     状態確認  sudo systemctl status xvideocollector
-    ログ追跡  sudo journalctl -u xvideocollector -f
+    ログ追跡  sudo journalctl --unit=xvideocollector -f
     再起動    sudo systemctl restart xvideocollector
     更新      sudo bash scripts/raspi/update.sh
 

@@ -18,6 +18,9 @@ step()    { echo -e "\n${BOLD}━━━ $* ━━━${NC}"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+# shellcheck source=scripts/raspi/_common.sh
+source "${SCRIPT_DIR}/_common.sh"
+
 XVC_USER="xvc"
 APP_DIR="/opt/xvideocollector"
 CONFIG_DIR="/etc/xvideocollector"
@@ -75,9 +78,13 @@ success "発行完了"
 
 # ── 3. 再起動と確認 ────────────────────────────────────────
 step "サービス再起動"
-systemctl restart xvideocollector.service
+if ! systemctl restart "$XVC_SERVICE"; then
+  err "サービスの再起動に失敗しました:"
+  dump_service_diagnostics
+  exit 1
+fi
 
-PORT="$(grep -oP '(?<=ASPNETCORE_URLS=http://0\.0\.0\.0:)\d+' "${CONFIG_DIR}/xvideocollector.env" || echo 8080)"
+PORT="$(read_configured_port "${CONFIG_DIR}/xvideocollector.env")"
 HEALTH_URL="http://127.0.0.1:${PORT}/api/health"
 
 for _ in $(seq 1 30); do
@@ -85,11 +92,21 @@ for _ in $(seq 1 30); do
     success "更新完了（ヘルスチェック OK）"
     exit 0
   fi
+
+  # クラッシュして再起動を繰り返している場合は待たずに打ち切る
+  SERVICE_STATE="$(systemctl is-active "$XVC_SERVICE" || true)"
+  RESTART_COUNT="$(systemctl show -p NRestarts --value "$XVC_SERVICE" 2>/dev/null || echo 0)"
+  if [[ "$SERVICE_STATE" == "failed" || "${RESTART_COUNT:-0}" -gt 0 ]]; then
+    err "再起動後にサービスが落ちています (状態: ${SERVICE_STATE}, 再起動回数: ${RESTART_COUNT})"
+    dump_service_diagnostics
+    exit 1
+  fi
+
   sleep 2
 done
 
 err "再起動後のヘルスチェックに失敗しました:"
-err "  journalctl -u xvideocollector -n 50 --no-pager"
 curl -s "$HEALTH_URL" || true
 echo
+dump_service_diagnostics
 exit 1

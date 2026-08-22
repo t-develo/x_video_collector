@@ -96,9 +96,19 @@ sudo bash scripts/raspi/install.sh
 | オプション | 説明 | 既定 |
 |-----------|------|------|
 | `--media-path <PATH>` | 動画の保存先 | `/var/lib/xvideocollector/media` |
-| `--port <PORT>` | 待ち受けポート | `8080` |
+| `--port <PORT>` | 待ち受けポート | `8080`（既存 env があればその値） |
 | `--user <NAME>` | サービス実行ユーザー | `xvc` |
 | `--skip-deps` | .NET / ffmpeg / yt-dlp の導入をスキップ | — |
+
+`/etc/xvideocollector/xvideocollector.env` が既にある再インストールでは、設定を失わない
+ようファイル全体は上書きしない。ただし `--port` を明示した場合は
+`ASPNETCORE_URLS` のポート番号だけを書き換える（`--port` を省略した場合は env 側の
+ポートに合わせる）。ポート以外の設定を変えるときは env を直接編集する。
+
+```bash
+# 8080 で導入済みの環境を 58180 に移す
+sudo bash scripts/raspi/install.sh --port 58180
+```
 
 外付け SSD に保存する例（先に「7. 外付けドライブ」を実施しておく）:
 
@@ -344,9 +354,16 @@ sudo journalctl --unit=xvideocollector -n 100 --no-pager
 | 外付けドライブ未マウントで起動しない | 想定動作（`RequiresMountsFor`）。`sudo mount -a` 後に再起動 |
 
 起動に失敗すると `systemctl status` は `activating (auto-restart)` と
-`code=killed, signal=ABRT` を表示する。これは systemd がプロセスを殺したのではなく、
-**アプリが未処理例外で abort した**という意味なので、原因は必ず `journalctl` の
+`code=exited, status=1`（想定済みの失敗）または `code=killed, signal=ABRT`
+（未処理例外での abort）を表示する。後者は systemd がプロセスを殺したのではなく
+**アプリ自身が abort した**という意味なので、原因は必ず `journalctl` の
 `Unhandled exception.` 以降に出ている。
+
+ポート競合の場合はスタックトレースの前に理由が 1 行で出る。
+
+```
+critical: 待ち受けアドレス http://0.0.0.0:8080 をバインドできません。同じポートを他のプロセスが使用しています。...
+```
 
 なお、5 分間に 5 回失敗するとユニットは `failed` で停止する
 （`StartLimitBurst`）。無限に再起動を繰り返して CPU を消費することはない。
@@ -363,16 +380,40 @@ sudo ss -ltnp | grep ':8080'
 占有プロセスを止めるか、別ポートに変更する。
 
 ```bash
-# 別ポートへ変更（インストール済みの環境）
+# 別ポートへ変更（導入済み・未導入のいずれも同じコマンドでよい）
+sudo bash scripts/raspi/install.sh --port 8081
+
+# env を直接編集する場合
 sudo sed -i 's|^ASPNETCORE_URLS=.*|ASPNETCORE_URLS=http://0.0.0.0:8081|' \
   /etc/xvideocollector/xvideocollector.env
 sudo systemctl restart xvideocollector
-
-# 未導入なら最初から別ポートで入れる
-sudo bash scripts/raspi/install.sh --port 8081
 ```
 
-`install.sh` は導入前にポートの空きを確認し、塞がっていれば占有プロセスを表示して中断する。
+`install.sh` はポートの空きを **2 回** 確認する。
+
+1. 依存導入・発行を始める前（無駄な数分を使わないため）
+2. `systemctl enable --now` の直前
+
+発行には数分かかるため、その間に他のプロセスがポートを取ることがある。2 回目の確認は
+このケースを捉えるためのもので、Kestrel のスタックトレースではなく次のように占有プロセス名で止まる。
+
+```
+[FAIL]  ポート 8080 は既に使用されています
+[FAIL]  占有プロセス:
+[FAIL]    1234 root     dotnet /opt/xvideocollector/XVideoCollector.LocalHost.dll
+[FAIL]      → systemd 管理外のプロセス（手動起動と思われる）:  sudo kill 1234
+```
+
+この時点で発行そのものは完了しているため、ポートを空けたあとは再インストールせずに
+起動するだけでよい。
+
+```bash
+sudo systemctl enable --now xvideocollector
+```
+
+なお、起動に失敗して再起動ループに入った場合、`install.sh` / `update.sh` は診断ログを
+出したうえでサービスを停止する（自動起動の設定は残る）。原因を解消したら
+`sudo systemctl start xvideocollector` で起動する。
 
 ### ダウンロードが失敗する
 

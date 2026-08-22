@@ -78,14 +78,15 @@ success "発行完了"
 
 # ── 3. 再起動と確認 ────────────────────────────────────────
 step "サービス再起動"
-if ! systemctl restart "$XVC_SERVICE"; then
-  err "サービスの再起動に失敗しました:"
-  dump_service_diagnostics
-  exit 1
-fi
-
 PORT="$(read_configured_port "${CONFIG_DIR}/xvideocollector.env")"
 HEALTH_URL="http://127.0.0.1:${PORT}/api/health"
+
+if ! systemctl restart "$XVC_SERVICE"; then
+  err "サービスの再起動に失敗しました:"
+  dump_service_diagnostics "$XVC_SERVICE" "$PORT"
+  stop_failed_service
+  exit 1
+fi
 
 for _ in $(seq 1 30); do
   if curl -sf -o /dev/null "$HEALTH_URL"; then
@@ -98,7 +99,8 @@ for _ in $(seq 1 30); do
   RESTART_COUNT="$(systemctl show -p NRestarts --value "$XVC_SERVICE" 2>/dev/null || echo 0)"
   if [[ "$SERVICE_STATE" == "failed" || "${RESTART_COUNT:-0}" -gt 0 ]]; then
     err "再起動後にサービスが落ちています (状態: ${SERVICE_STATE}, 再起動回数: ${RESTART_COUNT})"
-    dump_service_diagnostics
+    dump_service_diagnostics "$XVC_SERVICE" "$PORT"
+    stop_failed_service
     exit 1
   fi
 
@@ -108,5 +110,5 @@ done
 err "再起動後のヘルスチェックに失敗しました:"
 curl -s "$HEALTH_URL" || true
 echo
-dump_service_diagnostics
+dump_service_diagnostics "$XVC_SERVICE" "$PORT"
 exit 1

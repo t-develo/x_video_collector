@@ -59,7 +59,23 @@ app.Logger.LogInformation(
     "XVideoCollector LocalHost を起動します (フロントエンド={FrontendRoot})",
     frontendRoot ?? "(未配置)");
 
-app.Run();
+try
+{
+    app.Run();
+}
+catch (Exception ex)
+{
+    // ポート競合はラズパイ運用で最も起きやすい起動失敗。
+    // 未処理例外のまま abort させるとスタックトレースだけが journal に残り原因が読めない。
+    var reason = StartupFailure.DescribeAddressInUse(ex, builder.Configuration["ASPNETCORE_URLS"]);
+    if (reason is null)
+        throw;
+
+    app.Logger.LogCritical(ex, "{Reason}", reason);
+    return 1;
+}
+
+return 0;
 
 /// <summary>
 /// フロントエンド SPA の配信元ディレクトリを解決する。

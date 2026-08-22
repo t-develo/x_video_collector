@@ -112,12 +112,7 @@ if [[ -f "/etc/systemd/system/${XVC_SERVICE}" ]]; then
   systemctl stop "$XVC_SERVICE" 2>/dev/null || true
 fi
 
-PORT_LISTENER="$(port_listener "$PORT")"
-if [[ -n "$PORT_LISTENER" ]]; then
-  err "ポート ${PORT} は既に使用されています: ${PORT_LISTENER}"
-  err "次のいずれかで解消してください:"
-  err "  1. 占有プロセスを停止する   sudo ss -ltnp | grep ':${PORT}'"
-  err "  2. 別のポートで導入する     sudo bash scripts/raspi/install.sh --port <空いているポート>"
+if ! ensure_port_free "$PORT"; then
   exit 1
 fi
 success "ポート ${PORT} は空いています"
@@ -192,7 +187,18 @@ success "ディレクトリを作成しました (アプリ=${APP_DIR}, デー�
 step "設定ファイル"
 
 if [[ -f "$ENV_FILE" ]]; then
-  warn "${ENV_FILE} は既に存在するため上書きしません（設定は保持されます、ポート=${PORT}）"
+  # 既存の env は上書きしないが、--port を明示した場合は待ち受けポートだけ反映する。
+  # ここで反映しないと、スクリプトは新しいポートを見ているのにアプリは古いポートで
+  # 起動し、「空きを確認したはずのポートとは別のポートで競合する」ことになる。
+  CURRENT_PORT="$(read_configured_port "$ENV_FILE")"
+  if [[ "$CURRENT_PORT" != "$PORT" ]]; then
+    set_configured_port "$ENV_FILE" "$PORT"
+    chown root:"$XVC_USER" "$ENV_FILE"
+    chmod 640 "$ENV_FILE"
+    success "待ち受けポートを ${CURRENT_PORT} → ${PORT} に変更しました (${ENV_FILE})"
+  fi
+
+  warn "${ENV_FILE} は既に存在するため上書きしません（ポート以外の設定は保持されます、ポート=${PORT}）"
 else
   SIGNING_KEY="$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)"
 
@@ -274,10 +280,19 @@ success "systemd ユニットを配置しました"
 # ── 起動と自動起動の有効化 ─────────────────────────────────
 step "サービス起動 / 自動起動の有効化"
 
+# 依存導入と発行に数分かかるため、その間に別のプロセスがポートを取っている場合がある。
+# 起動直前に取り直して確認し、スタックトレースではなく占有プロセス名で失敗させる。
+if ! ensure_port_free "$PORT"; then
+  err "発行は完了しています。ポートを空けてから次のコマンドで起動してください:"
+  err "  sudo systemctl enable --now ${XVC_SERVICE}"
+  exit 1
+fi
+
 # enable --now = 今すぐ起動 + 次回以降のブート時に自動起動
 if ! systemctl enable --now "$XVC_SERVICE"; then
   err "サービスの起動に失敗しました。原因は次のログを参照してください:"
-  dump_service_diagnostics
+  dump_service_diagnostics "$XVC_SERVICE" "$PORT"
+  stop_failed_service
   exit 1
 fi
 systemctl enable --now xvideocollector-ytdlp-update.timer
@@ -299,7 +314,8 @@ for _ in $(seq 1 30); do
   RESTART_COUNT="$(systemctl show -p NRestarts --value "$XVC_SERVICE" 2>/dev/null || echo 0)"
   if [[ "$SERVICE_STATE" == "failed" || "${RESTART_COUNT:-0}" -gt 0 ]]; then
     err "サービスの起動に失敗しています (状態: ${SERVICE_STATE}, 再起動回数: ${RESTART_COUNT})"
-    dump_service_diagnostics
+    dump_service_diagnostics "$XVC_SERVICE" "$PORT"
+    stop_failed_service
     exit 1
   fi
 
@@ -312,7 +328,7 @@ else
   err "ヘルスチェックに失敗しました:"
   curl -s "$HEALTH_URL" || true
   echo
-  dump_service_diagnostics
+  dump_service_diagnostics "$XVC_SERVICE" "$PORT"
   exit 1
 fi
 

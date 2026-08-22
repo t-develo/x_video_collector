@@ -53,15 +53,33 @@ public sealed class RegisterVideoUseCaseTests
             () => _sut.ExecuteAsync(request));
     }
 
-    [Fact]
-    public async Task ExecuteAsync_EmptyTitle_ThrowsArgumentException()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ExecuteAsync_TitleOmitted_GeneratesFallbackTitleFromUrl(string? title)
     {
         var request = new RegisterVideoRequest(
-            "https://x.com/user/status/123456789",
-            "   ");
+            "https://x.com/tachu_muscle/status/2088733011483525400",
+            title);
 
-        await Assert.ThrowsAsync<ArgumentException>(
-            () => _sut.ExecuteAsync(request));
+        var result = await _sut.ExecuteAsync(request);
+
+        Assert.Equal("@tachu_muscle - 2088733011483525400", result.Title);
+        _videoRepoMock.Verify(r => r.AddAsync(It.IsAny<Video>(), default), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_UrlWithVideoPathAndQuery_NormalizesAndRegisters()
+    {
+        var request = new RegisterVideoRequest(
+            "https://x.com/tachu_muscle/status/2088733011483525400/video/1?s=46");
+
+        var result = await _sut.ExecuteAsync(request);
+
+        Assert.Equal("https://x.com/tachu_muscle/status/2088733011483525400", result.TweetUrl);
+        _videoRepoMock.Verify(r => r.AddAsync(It.IsAny<Video>(), default), Times.Once);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(default), Times.Once);
     }
 
     [Fact]

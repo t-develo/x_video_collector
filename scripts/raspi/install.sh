@@ -112,12 +112,7 @@ if [[ -f "/etc/systemd/system/${XVC_SERVICE}" ]]; then
   systemctl stop "$XVC_SERVICE" 2>/dev/null || true
 fi
 
-PORT_LISTENER="$(port_listener "$PORT")"
-if [[ -n "$PORT_LISTENER" ]]; then
-  err "ポート ${PORT} は既に使用されています: ${PORT_LISTENER}"
-  err "次のいずれかで解消してください:"
-  err "  1. 占有プロセスを停止する   sudo ss -ltnp | grep ':${PORT}'"
-  err "  2. 別のポートで導入する     sudo bash scripts/raspi/install.sh --port <空いているポート>"
+if ! ensure_port_free "$PORT"; then
   exit 1
 fi
 success "ポート ${PORT} は空いています"
@@ -274,10 +269,19 @@ success "systemd ユニットを配置しました"
 # ── 起動と自動起動の有効化 ─────────────────────────────────
 step "サービス起動 / 自動起動の有効化"
 
+# 依存導入と発行に数分かかるため、その間に別のプロセスがポートを取っている場合がある。
+# 起動直前に取り直して確認し、スタックトレースではなく占有プロセス名で失敗させる。
+if ! ensure_port_free "$PORT"; then
+  err "発行は完了しています。ポートを空けてから次のコマンドで起動してください:"
+  err "  sudo systemctl enable --now ${XVC_SERVICE}"
+  exit 1
+fi
+
 # enable --now = 今すぐ起動 + 次回以降のブート時に自動起動
 if ! systemctl enable --now "$XVC_SERVICE"; then
   err "サービスの起動に失敗しました。原因は次のログを参照してください:"
-  dump_service_diagnostics
+  dump_service_diagnostics "$XVC_SERVICE" "$PORT"
+  stop_failed_service
   exit 1
 fi
 systemctl enable --now xvideocollector-ytdlp-update.timer
@@ -299,7 +303,8 @@ for _ in $(seq 1 30); do
   RESTART_COUNT="$(systemctl show -p NRestarts --value "$XVC_SERVICE" 2>/dev/null || echo 0)"
   if [[ "$SERVICE_STATE" == "failed" || "${RESTART_COUNT:-0}" -gt 0 ]]; then
     err "サービスの起動に失敗しています (状態: ${SERVICE_STATE}, 再起動回数: ${RESTART_COUNT})"
-    dump_service_diagnostics
+    dump_service_diagnostics "$XVC_SERVICE" "$PORT"
+    stop_failed_service
     exit 1
   fi
 
@@ -312,7 +317,7 @@ else
   err "ヘルスチェックに失敗しました:"
   curl -s "$HEALTH_URL" || true
   echo
-  dump_service_diagnostics
+  dump_service_diagnostics "$XVC_SERVICE" "$PORT"
   exit 1
 fi
 

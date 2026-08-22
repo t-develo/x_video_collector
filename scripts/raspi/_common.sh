@@ -24,6 +24,28 @@ read_configured_port() {
   echo "${port:-8080}"
 }
 
+# env ファイルの ASPNETCORE_URLS を指定ポートに書き換える（行が無ければ追加する）。
+# install.sh は既存の env を上書きしないため、--port の指定はここで反映する。
+#   set_configured_port /etc/xvideocollector/xvideocollector.env 58180
+set_configured_port() {
+  local env_file="$1" port="$2" value
+
+  if ! grep -q '^ASPNETCORE_URLS=' "$env_file"; then
+    printf 'ASPNETCORE_URLS=http://0.0.0.0:%s\n' "$port" >> "$env_file"
+    return 0
+  fi
+
+  value="$(sed -n 's|^ASPNETCORE_URLS=||p' "$env_file" | head -1)"
+
+  if [[ "$value" =~ ^[^:]+://[^:/]+:[0-9]{1,5}$ ]]; then
+    # ホスト部 (0.0.0.0 / + / localhost) は保ったままポート番号だけ差し替える
+    sed -i -E "s|^(ASPNETCORE_URLS=[^:]+://[^:/]*):[0-9]{1,5}.*|\1:${port}|" "$env_file"
+  else
+    # 複数アドレス指定やポート無しの指定は、単一アドレスへ置き換える
+    sed -i -E "s|^ASPNETCORE_URLS=.*|ASPNETCORE_URLS=http://0.0.0.0:${port}|" "$env_file"
+  fi
+}
+
 # 指定ポートを LISTEN しているプロセスの説明を返す（未使用なら空文字）。
 #   port_listener 8080  → users:(("dotnet",pid=1234,fd=200))
 port_listener() {

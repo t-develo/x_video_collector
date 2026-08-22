@@ -187,7 +187,18 @@ success "ディレクトリを作成しました (アプリ=${APP_DIR}, デー�
 step "設定ファイル"
 
 if [[ -f "$ENV_FILE" ]]; then
-  warn "${ENV_FILE} は既に存在するため上書きしません（設定は保持されます、ポート=${PORT}）"
+  # 既存の env は上書きしないが、--port を明示した場合は待ち受けポートだけ反映する。
+  # ここで反映しないと、スクリプトは新しいポートを見ているのにアプリは古いポートで
+  # 起動し、「空きを確認したはずのポートとは別のポートで競合する」ことになる。
+  CURRENT_PORT="$(read_configured_port "$ENV_FILE")"
+  if [[ "$CURRENT_PORT" != "$PORT" ]]; then
+    set_configured_port "$ENV_FILE" "$PORT"
+    chown root:"$XVC_USER" "$ENV_FILE"
+    chmod 640 "$ENV_FILE"
+    success "待ち受けポートを ${CURRENT_PORT} → ${PORT} に変更しました (${ENV_FILE})"
+  fi
+
+  warn "${ENV_FILE} は既に存在するため上書きしません（ポート以外の設定は保持されます、ポート=${PORT}）"
 else
   SIGNING_KEY="$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)"
 

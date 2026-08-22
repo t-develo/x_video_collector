@@ -96,9 +96,19 @@ sudo bash scripts/raspi/install.sh
 | オプション | 説明 | 既定 |
 |-----------|------|------|
 | `--media-path <PATH>` | 動画の保存先 | `/var/lib/xvideocollector/media` |
-| `--port <PORT>` | 待ち受けポート | `8080` |
+| `--port <PORT>` | 待ち受けポート | `8080`（既存 env があればその値） |
 | `--user <NAME>` | サービス実行ユーザー | `xvc` |
 | `--skip-deps` | .NET / ffmpeg / yt-dlp の導入をスキップ | — |
+
+`/etc/xvideocollector/xvideocollector.env` が既にある再インストールでは、設定を失わない
+ようファイル全体は上書きしない。ただし `--port` を明示した場合は
+`ASPNETCORE_URLS` のポート番号だけを書き換える（`--port` を省略した場合は env 側の
+ポートに合わせる）。ポート以外の設定を変えるときは env を直接編集する。
+
+```bash
+# 8080 で導入済みの環境を 58180 に移す
+sudo bash scripts/raspi/install.sh --port 58180
+```
 
 外付け SSD に保存する例（先に「7. 外付けドライブ」を実施しておく）:
 
@@ -370,13 +380,13 @@ sudo ss -ltnp | grep ':8080'
 占有プロセスを止めるか、別ポートに変更する。
 
 ```bash
-# 別ポートへ変更（インストール済みの環境）
+# 別ポートへ変更（導入済み・未導入のいずれも同じコマンドでよい）
+sudo bash scripts/raspi/install.sh --port 8081
+
+# env を直接編集する場合
 sudo sed -i 's|^ASPNETCORE_URLS=.*|ASPNETCORE_URLS=http://0.0.0.0:8081|' \
   /etc/xvideocollector/xvideocollector.env
 sudo systemctl restart xvideocollector
-
-# 未導入なら最初から別ポートで入れる
-sudo bash scripts/raspi/install.sh --port 8081
 ```
 
 `install.sh` はポートの空きを **2 回** 確認する。

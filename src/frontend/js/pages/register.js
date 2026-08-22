@@ -24,6 +24,38 @@ export function validateTweetUrl(url) {
 }
 
 /**
+ * API エラーから表示用メッセージを組み立てる
+ * @param {import('../api.js').ApiError} err
+ * @returns {string}
+ */
+export function buildApiErrorMessage(err) {
+  if (err.status === 409) {
+    return 'この動画はすでに登録されています';
+  }
+  if (err.status === 400 || err.status === 422) {
+    const detail = extractErrorDetail(err.body);
+    return detail ? `登録できませんでした: ${detail}` : '無効な URL です';
+  }
+  return `エラーが発生しました (${err.status})`;
+}
+
+/**
+ * エラーレスポンス本文（JSON）からメッセージを取り出す
+ * @param {string|undefined} body
+ * @returns {string|null}
+ */
+function extractErrorDetail(body) {
+  if (!body) return null;
+  try {
+    const parsed = JSON.parse(body);
+    const detail = parsed?.message ?? parsed?.error;
+    return typeof detail === 'string' && detail.trim() !== '' ? detail : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * ステータスバッジ要素を生成する
  * @param {'Pending'|'Downloading'|'Ready'|'Failed'} status
  * @returns {HTMLElement}
@@ -140,12 +172,7 @@ export function renderRegisterPage(container) {
       navigateTo('/videos');
     } catch (err) {
       if (err instanceof ApiError) {
-        const msg = err.status === 409
-          ? 'この動画はすでに登録されています'
-          : err.status === 422
-            ? '無効な URL です'
-            : `エラーが発生しました (${err.status})`;
-        showError(msg);
+        showError(buildApiErrorMessage(err));
       } else {
         showError('ネットワークエラーが発生しました。再試行してください。');
       }

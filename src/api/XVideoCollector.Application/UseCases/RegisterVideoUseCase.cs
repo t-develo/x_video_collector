@@ -24,7 +24,10 @@ public sealed class RegisterVideoUseCase(
         if (existing is not null)
             throw new DuplicateTweetUrlException(tweetUrl.TweetId);
 
-        var title = VideoTitle.Create(request.Title);
+        var title = VideoTitle.Create(
+            string.IsNullOrWhiteSpace(request.Title)
+                ? BuildFallbackTitle(tweetUrl)
+                : request.Title);
         var video = Video.Create(tweetUrl, title, timeProvider);
 
         await videoRepository.AddAsync(video, cancellationToken);
@@ -32,4 +35,11 @@ public sealed class RegisterVideoUseCase(
 
         return VideoMapper.ToDto(video, []);
     }
+
+    /// <summary>
+    /// タイトル未指定時の暫定タイトルを URL から生成する。
+    /// ダウンロード後にユーザーが編集する前提の識別用ラベル。
+    /// </summary>
+    private static string BuildFallbackTitle(TweetUrl tweetUrl) =>
+        $"@{tweetUrl.UserName} - {tweetUrl.TweetId}";
 }

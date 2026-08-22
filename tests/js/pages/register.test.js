@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { validateTweetUrl, renderRegisterPage } from '../../../src/frontend/js/pages/register.js';
+import { validateTweetUrl, renderRegisterPage, buildApiErrorMessage } from '../../../src/frontend/js/pages/register.js';
 
 // api モジュールをモック
 vi.mock('../../../src/frontend/js/api.js', () => ({
@@ -74,6 +74,49 @@ describe('validateTweetUrl', () => {
 
   it('http:// でも有効', () => {
     expect(validateTweetUrl('http://x.com/user/status/1234567890')).toBeNull();
+  });
+
+  it('/video/1 とクエリ付きの共有 URL も有効', () => {
+    expect(
+      validateTweetUrl('https://x.com/tachu_muscle/status/2088733011483525400/video/1?s=46'),
+    ).toBeNull();
+  });
+});
+
+describe('buildApiErrorMessage', () => {
+  class ApiError extends Error {
+    constructor(status, statusText, body) {
+      super(`API Error: ${status} ${statusText}`);
+      this.status = status;
+      this.statusText = statusText;
+      this.body = body;
+    }
+  }
+
+  it('409 は重複登録メッセージを返す', () => {
+    const msg = buildApiErrorMessage(new ApiError(409, 'Conflict', 'Already exists'));
+    expect(msg).toContain('すでに登録されています');
+  });
+
+  it('400 は JSON ボディの message を表示する', () => {
+    const body = JSON.stringify({ status: 400, error: 'BadRequest', message: 'Invalid X/Twitter URL' });
+    const msg = buildApiErrorMessage(new ApiError(400, 'Bad Request', body));
+    expect(msg).toContain('Invalid X/Twitter URL');
+  });
+
+  it('400 でボディが JSON でない場合は既定メッセージを返す', () => {
+    const msg = buildApiErrorMessage(new ApiError(400, 'Bad Request', '<html>error</html>'));
+    expect(msg).toContain('無効な URL');
+  });
+
+  it('400 でボディが空の場合は既定メッセージを返す', () => {
+    const msg = buildApiErrorMessage(new ApiError(400, 'Bad Request', ''));
+    expect(msg).toContain('無効な URL');
+  });
+
+  it('その他のステータスはステータスコード付きメッセージを返す', () => {
+    const msg = buildApiErrorMessage(new ApiError(500, 'Internal Server Error', ''));
+    expect(msg).toContain('500');
   });
 });
 

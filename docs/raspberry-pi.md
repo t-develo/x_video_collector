@@ -34,7 +34,8 @@ Azure 構成（Functions / Blob Storage / Static Web Apps）はそのまま残�
 │     │               │        │  media/thumbnails/  │                   │
 │     └──────────────┘        └────────────────────┘                   │
 │                                                                      │
-│   systemd timer: yt-dlp 週次更新 / DB 日次バックアップ                │
+│   systemd timer: main 監視による自動更新 (日次)                       │
+│                  yt-dlp 週次更新 / DB 日次バックアップ                │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -144,7 +145,7 @@ sudo journalctl --unit=xvideocollector -p err -n 50 --no-pager
 sudo systemctl restart xvideocollector
 sudo systemctl stop xvideocollector
 
-# タイマーの状態
+# タイマーの状態（自動更新 / yt-dlp 更新 / バックアップ の 3 本）
 systemctl list-timers 'xvideocollector*'
 ```
 
@@ -157,6 +158,74 @@ sudo reboot                              # 再起動後に自動で立ち上が�
 
 ### 更新
 
+#### 自動更新（既定で有効）
+
+`xvideocollector-update.timer` が **日次で `origin/main` を監視**し、
+新しいコミットがあれば自動で取り込んで再発行する。
+
+```
+git fetch origin main
+  ├─ HEAD と origin/main が同じ  → 何もせず終了（発行は走らない）
+  └─ 新しいコミットがある
+       ├─ ダウンロード/変換の実行中     → 今回は見送り（翌日の発火で再挑戦）
+       ├─ git pull --ff-only
+       ├─ dotnet publish → 一時ディレクトリ
+       ├─ 旧バージョンを退避してから入れ替え
+       ├─ サービス再起動 → ヘルスチェック
+       │    ├─ OK → 完了
+       │    └─ NG → 旧バージョンへ自動で戻して再起動
+       └─ 完了
+```
+
+更新が無い日は `git fetch` とコミットハッシュの比較だけで終わるため、
+`dotnet publish` は走らず負荷はほぼ無い。
+
+```bash
+# 実行状況の確認
+systemctl list-timers 'xvideocollector-update*'
+sudo journalctl --unit=xvideocollector-update -n 50 --no-pager
+
+# 今すぐ実行する（タイマーを待たない）
+sudo systemctl start xvideocollector-update.service
+
+# 停止 / 再開
+sudo systemctl disable --now xvideocollector-update.timer
+sudo systemctl enable --now xvideocollector-update.timer
+```
+
+インストール時に無効化しておく場合は `sudo bash scripts/raspi/install.sh --no-auto-update`。
+
+**頻度を変える**には drop-in で上書きする（例: 6 時間ごと）:
+
+```bash
+sudo systemctl edit xvideocollector-update.timer
+```
+
+```ini
+[Timer]
+# 既定値を消してから設定する
+OnCalendar=
+OnCalendar=*-*-* 00/6:00:00
+```
+
+**自動更新が止まる条件**（いずれも `systemctl status xvideocollector-update` が failed になる）:
+
+| 条件 | 理由 |
+|------|------|
+| クローンが `main` 以外をチェックアウト中 | 作業ブランチを勝手に切り替えないため |
+| コミットしていない変更がある | ローカルの変更を失わないため |
+| `--ff-only` でマージできない | 履歴が分岐している。手動での解決が必要 |
+
+`systemd` ユニットや `xvideocollector.env` の雛形が更新された場合は自動では反映されない
+（実行中のユニットを自分で書き換えるのを避けるため）。
+その場合はログに警告が出るので、`sudo bash scripts/raspi/install.sh` を実行し直す。
+
+自動更新・手動更新・`install.sh` は同じロック (`/run/xvideocollector-update.lock`) を取るため、
+同時に走って発行先を壊すことはない。自動更新は競合したら見送り、
+`install.sh` は競合したらエラーで止まる。
+
+#### 手動更新
+
 ```bash
 cd ~/x_video_collector
 sudo bash scripts/raspi/update.sh
@@ -164,6 +233,12 @@ sudo bash scripts/raspi/update.sh
 
 `git pull` → 再発行 → サービス再起動 → ヘルスチェックまで行う。
 設定ファイルとデータは保持される。ローカルの変更を使いたい場合は `--no-pull`。
+
+更新の有無だけを確認したい場合:
+
+```bash
+sudo bash scripts/raspi/update.sh --branch main --check-only
+```
 
 ### アンインストール
 

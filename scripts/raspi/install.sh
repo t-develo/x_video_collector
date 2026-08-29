@@ -41,6 +41,7 @@ MEDIA_PATH=""
 PORT="8080"
 PORT_EXPLICIT=0
 SKIP_DEPS=0
+AUTO_UPDATE=1
 
 usage() {
   cat <<'USAGE'
@@ -52,6 +53,9 @@ usage() {
   --port <PORT>         待ち受けポート (既定: 8080)
   --user <NAME>         サービス実行ユーザー (既定: xvc)
   --skip-deps           .NET / ffmpeg / yt-dlp のインストールをスキップする
+  --no-auto-update      origin/main を監視する自動更新タイマーを有効化しない
+                        (既定: 有効。後から sudo systemctl disable --now
+                         xvideocollector-update.timer で止められる)
   -h, --help            このヘルプを表示する
 USAGE
 }
@@ -62,6 +66,7 @@ while [[ $# -gt 0 ]]; do
     --port)       PORT="$2"; PORT_EXPLICIT=1; shift 2 ;;
     --user)       XVC_USER="$2"; shift 2 ;;
     --skip-deps)  SKIP_DEPS=1; shift ;;
+    --no-auto-update) AUTO_UPDATE=0; shift ;;
     -h|--help)    usage; exit 0 ;;
     *) err "不明なオプション: $1"; usage; exit 1 ;;
   esac
@@ -102,6 +107,14 @@ if ! command -v systemctl &>/dev/null; then
   exit 1
 fi
 success "systemd 検出"
+
+# 自動更新タイマーが同時に走ると発行先 (${APP_DIR}) を奪い合う。
+# インストールは人が待っている操作なので、見送らずエラーで止める。
+if ! acquire_update_lock; then
+  err "更新処理が実行中です。完了を待ってからやり直してください。"
+  err "  状況確認: systemctl status xvideocollector-update"
+  exit 1
+fi
 
 # 依存導入や publish（数分かかる）の前にポートの空きを確認する。
 # 塞がったまま進めると最後の systemctl enable --now で必ず失敗する。
@@ -248,12 +261,14 @@ render_unit() {
     -e "s|__XVC_SCRIPT_DIR__|${SCRIPT_INSTALL_DIR}|g" \
     -e "s|__XVC_DOTNET__|${DOTNET_BIN}|g" \
     -e "s|__XVC_YTDLP__|${YTDLP_BIN}|g" \
+    -e "s|__XVC_REPO_DIR__|${REPO_ROOT}|g" \
     "$src" > "$dest"
 }
 
 for unit in xvideocollector.service \
             xvideocollector-ytdlp-update.service xvideocollector-ytdlp-update.timer \
-            xvideocollector-backup.service xvideocollector-backup.timer; do
+            xvideocollector-backup.service xvideocollector-backup.timer \
+            xvideocollector-update.service xvideocollector-update.timer; do
   render_unit "${SCRIPT_DIR}/systemd/${unit}" "/etc/systemd/system/${unit}"
 done
 
@@ -297,6 +312,19 @@ if ! systemctl enable --now "$XVC_SERVICE"; then
 fi
 systemctl enable --now xvideocollector-ytdlp-update.timer
 systemctl enable --now xvideocollector-backup.timer
+
+# 自動更新はこのクローンを起点に動くため、git リポジトリでないと成立しない
+if [[ $AUTO_UPDATE -eq 1 && ! -d "${REPO_ROOT}/.git" ]]; then
+  warn "${REPO_ROOT} が git リポジトリではないため、自動更新は有効化しません"
+  AUTO_UPDATE=0
+fi
+
+if [[ $AUTO_UPDATE -eq 1 ]]; then
+  systemctl enable --now xvideocollector-update.timer
+else
+  # 再インストール時に以前有効化されたタイマーが残らないようにする
+  systemctl disable --now xvideocollector-update.timer 2>/dev/null || true
+fi
 success "サービスを起動し、再起動時の自動起動を有効化しました"
 
 # ── 疎通確認 ───────────────────────────────────────────────
@@ -336,6 +364,15 @@ fi
 HOSTNAME_SHORT="$(hostname)"
 LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 
+if [[ $AUTO_UPDATE -eq 1 ]]; then
+  AUTO_UPDATE_NOTE="有効（origin/main を日次で監視）
+    ログ      sudo journalctl --unit=xvideocollector-update
+    無効化    sudo systemctl disable --now xvideocollector-update.timer"
+else
+  AUTO_UPDATE_NOTE="無効
+    有効化    sudo systemctl enable --now xvideocollector-update.timer"
+fi
+
 step "セットアップ完了"
 cat <<EOF
 
@@ -353,7 +390,10 @@ cat <<EOF
     状態確認  sudo systemctl status xvideocollector
     ログ追跡  sudo journalctl --unit=xvideocollector -f
     再起動    sudo systemctl restart xvideocollector
-    更新      sudo bash scripts/raspi/update.sh
+    手動更新  sudo bash scripts/raspi/update.sh
+
+  ${BOLD}自動更新${NC}
+    ${AUTO_UPDATE_NOTE}
 
   ${BOLD}推奨: LAN 内に限定する（認証を掛けていないため）${NC}
     sudo apt install -y ufw

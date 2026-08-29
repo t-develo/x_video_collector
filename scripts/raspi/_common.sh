@@ -6,6 +6,22 @@
 
 XVC_SERVICE="xvideocollector.service"
 XVC_ENV_FILE="/etc/xvideocollector/xvideocollector.env"
+XVC_LOCK_FILE="/run/xvideocollector-update.lock"
+
+# ── 排他制御 ───────────────────────────────────────────────
+
+# 発行先 (/opt/xvideocollector) を書き換えるスクリプトを 1 つだけに絞る。
+# install.sh と自動更新タイマーが同時に走ると発行先を奪い合うため、両方で取得する。
+# fd 9 を開いたまま保持し、スクリプト終了時に自動で解放させる。
+# 取得できた場合は 0、他が実行中なら 1 を返す（呼び出し側で扱いを決める）。
+acquire_update_lock() {
+  if ! command -v flock &>/dev/null; then
+    return 0
+  fi
+
+  exec 9>"$XVC_LOCK_FILE"
+  flock -n 9
+}
 
 # ── ポート ─────────────────────────────────────────────────
 

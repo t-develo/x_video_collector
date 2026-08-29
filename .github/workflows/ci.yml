@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches:
+      # ラズパイの自動更新は main を直接ビルドするため、main でも検証する
+      - main
       - 'feature/sprint**'
       - 'claude/**'
   pull_request:
@@ -74,6 +76,44 @@ jobs:
 
       - name: Run Vitest
         run: npm test
+
+  shell-lint:
+    name: Shell Script Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ラズパイの導入・更新スクリプトは無人で実行されるため、
+      # 構文エラーや未定義変数を CI で止める
+      - name: Syntax check
+        run: |
+          for f in scripts/raspi/*.sh; do
+            bash -n "$f"
+          done
+
+      - name: ShellCheck
+        run: shellcheck -x -S warning scripts/raspi/*.sh
+
+      # install.sh が置換するプレースホルダの取りこぼしを防ぐ
+      - name: Verify systemd unit placeholders are rendered
+        run: |
+          set -euo pipefail
+          out="$(mktemp -d)"
+          for unit in scripts/raspi/systemd/*; do
+            sed -e 's|__XVC_USER__|xvc|g' \
+                -e 's|__XVC_APP_DIR__|/opt/xvideocollector|g' \
+                -e 's|__XVC_DATA_DIR__|/var/lib/xvideocollector|g' \
+                -e 's|__XVC_CONFIG_DIR__|/etc/xvideocollector|g' \
+                -e 's|__XVC_SCRIPT_DIR__|/opt/xvideocollector/scripts|g' \
+                -e 's|__XVC_DOTNET__|/opt/dotnet/dotnet|g' \
+                -e 's|__XVC_YTDLP__|/usr/local/bin/yt-dlp|g' \
+                -e 's|__XVC_REPO_DIR__|/home/pi/x_video_collector|g' \
+                "$unit" > "${out}/$(basename "$unit")"
+          done
+          if grep -rn '__XVC_' "$out"; then
+            echo "install.sh の render_unit に置換が定義されていないプレースホルダがあります" >&2
+            exit 1
+          fi
 
   build-localhost-arm64:
     name: Publish LocalHost (linux-arm64)

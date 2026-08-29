@@ -1,0 +1,14 @@
+[Unit]
+Description=Poll origin/main and update X Video Collector
+Documentation=https://github.com/t-develo/x_video_collector/blob/main/docs/raspberry-pi.md
+
+[Timer]
+# 更新が無ければ fetch と SHA 比較だけで終わるが、
+# 更新があると dotnet publish に数分かかるため日次にしている。
+OnCalendar=daily
+# 起動していなかった間に実行時刻を過ぎていた場合は起動後に実行する
+Persistent=true
+RandomizedDelaySec=1h
+
+[Install]
+WantedBy=timers.target

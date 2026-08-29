@@ -1,0 +1,14 @@
+[Unit]
+Description=Auto update X Video Collector from origin/main
+Documentation=https://github.com/t-develo/x_video_collector/blob/main/docs/raspberry-pi.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# origin/main に新しいコミットがある時だけ発行し直す。
+# ダウンロード/変換の実行中は見送り、失敗したら旧バージョンへ戻す。
+ExecStart=/bin/bash __XVC_REPO_DIR__/scripts/raspi/update.sh --branch main --if-changed --defer-while-busy --quiet
+SyslogIdentifier=xvideocollector-update
+# Raspberry Pi では dotnet publish に数分かかる。既定の 90 秒では足りない。
+TimeoutStartSec=1800

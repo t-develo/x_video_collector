@@ -46,7 +46,8 @@ fi
 
 step "サービス停止と自動起動の解除"
 for unit in xvideocollector.service \
-            xvideocollector-ytdlp-update.timer xvideocollector-backup.timer; do
+            xvideocollector-ytdlp-update.timer xvideocollector-backup.timer \
+            xvideocollector-update.timer; do
   systemctl disable --now "$unit" 2>/dev/null || true
 done
 success "サービスを停止し、自動起動を解除しました"
@@ -56,13 +57,18 @@ rm -f /etc/systemd/system/xvideocollector.service \
       /etc/systemd/system/xvideocollector-ytdlp-update.service \
       /etc/systemd/system/xvideocollector-ytdlp-update.timer \
       /etc/systemd/system/xvideocollector-backup.service \
-      /etc/systemd/system/xvideocollector-backup.timer
+      /etc/systemd/system/xvideocollector-backup.timer \
+      /etc/systemd/system/xvideocollector-update.service \
+      /etc/systemd/system/xvideocollector-update.timer
 rm -rf /etc/systemd/system/xvideocollector.service.d
 systemctl daemon-reload
 success "systemd ユニットを削除しました"
 
 step "アプリケーションの削除"
 rm -rf "$APP_DIR"
+# 更新が途中で失敗した場合に残る退避先・発行先も掃除する
+rm -rf "${APP_DIR}.prev" "${APP_DIR}".new.*
+rm -f /run/xvideocollector-update.lock
 success "${APP_DIR} を削除しました"
 
 if [[ $PURGE -eq 1 ]]; then

@@ -29,6 +29,12 @@
   --text-xl: 1.25rem;
   --text-2xl: 1.5rem;
 
+  /* 入力欄・select・textarea 専用のフォントサイズ。
+     iOS Safari は 16px 未満のフォーム部品にフォーカスするとページを自動で拡大し、
+     フォーカスを外しても元の倍率に戻さない。タッチ端末では 16px を下回らせないこと。
+     デスクトップでは従来どおり --text-sm (14px)。 */
+  --text-control: var(--text-sm);
+
   /* スペーシング */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
@@ -58,4 +64,13 @@
   /* ブレークポイント（メディアクエリで使用する定数） */
   --bp-tablet: 768px;
   --bp-desktop: 1200px;
+}
+
+/* タッチ端末ではフォーム部品を 16px 以上にして iOS Safari のオートズームを防ぐ。
+   画面幅ではなくポインタ精度で判定するのは、横向き iPad のように
+   768px を超えるタッチ端末を取りこぼさないため。 */
+@media (pointer: coarse) {
+  :root {
+    --text-control: var(--text-base);
+  }
 }

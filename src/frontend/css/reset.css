@@ -17,6 +17,10 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* 想定外の横はみ出しでページ全体が横スクロールしないための保険。
+     hidden ではなく clip を使うのはスクロールコンテナを作らないため
+     （作ると #site-header の position: sticky が効かなくなる）。 */
+  overflow-x: clip;
 }
 
 img, svg, video {
@@ -51,6 +55,9 @@ input, textarea, select {
   background: none;
   border: none;
   outline: none;
+  /* font の後に置いてショートハンドを上書きする。
+     個別指定を忘れた部品もタッチ端末で 16px を下回らないようにするための保険。 */
+  font-size: var(--text-control);
 }
 
 h1, h2, h3, h4, h5, h6 {

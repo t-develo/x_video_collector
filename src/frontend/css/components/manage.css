@@ -48,7 +48,7 @@
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
-  font-size: var(--text-sm);
+  font-size: var(--text-control);
   min-width: 180px;
   transition: border-color var(--transition-fast);
 }
@@ -235,7 +235,7 @@
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
-  font-size: var(--text-sm);
+  font-size: var(--text-control);
   min-width: 180px;
   transition: border-color var(--transition-fast);
 }
@@ -254,7 +254,7 @@
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-control);
   width: 80px;
   transition: border-color var(--transition-fast);
 }
@@ -358,6 +358,12 @@
 /* ========== レスポンシブ ========== */
 
 @media (max-width: 768px) {
+  /* #main-content が既に左右 16px の余白を持つため上下だけにする */
+  .tag-manage-page,
+  .category-manage-page {
+    padding: var(--space-md) 0;
+  }
+
   .tag-create-form {
     flex-direction: column;
     align-items: stretch;

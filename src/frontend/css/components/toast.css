@@ -14,6 +14,14 @@
   animation: toast-in var(--transition-normal) ease forwards;
 }
 
+/* コンテナ幅（画面幅 - 左右 16px）に収める。 */
+@media (max-width: 768px) {
+  .toast {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
 .toast.toast-success {
   border-color: var(--color-success);
 }

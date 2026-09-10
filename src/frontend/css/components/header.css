@@ -19,6 +19,11 @@
   letter-spacing: 0.05em;
   white-space: nowrap;
   cursor: pointer;
+  /* flex アイテムは既定で内容幅より縮まないため、狭い画面ではロゴが
+     ヘッダーからはみ出す。min-width: 0 で縮小を許し、溢れる分は省略記号にする。 */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-nav {
@@ -89,6 +94,14 @@
   outline-offset: 2px;
 }
 
+/* タッチ端末では指で押せる大きさ (44px) を確保する。ヘッダーは 56px なので収まる。 */
+@media (pointer: coarse) {
+  .header-menu-btn {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 /* ========== モバイルナビ ========== */
 
 @media (max-width: 768px) {
@@ -96,6 +109,10 @@
     padding: 0 var(--space-md);
     gap: var(--space-md);
     position: relative;
+  }
+
+  .header-logo {
+    font-size: var(--text-base);
   }
 
   .header-menu-btn {

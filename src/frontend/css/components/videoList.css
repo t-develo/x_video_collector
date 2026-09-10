@@ -53,8 +53,9 @@
 }
 
 @media (max-width: 768px) {
+  /* 親 (#main-content) の余白と二重にしない */
   .stats-container {
-    padding: 0 var(--space-md);
+    padding: 0;
   }
 
   .stats-bar {
@@ -118,7 +119,7 @@
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-control);
   padding: var(--space-xs) var(--space-sm);
   cursor: pointer;
   transition: border-color var(--transition-fast);
@@ -405,8 +406,10 @@
 /* ========== レスポンシブ ========== */
 
 @media (max-width: 768px) {
+  /* #main-content が既に左右 16px の余白を持つ。ここでも左右に付けると
+     .stats-container と合わせて片側 48px が余白に消えるため、上下だけにする。 */
   .video-list-page {
-    padding: var(--space-md);
+    padding: var(--space-md) 0;
   }
 
   .video-list-header {

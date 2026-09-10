@@ -10,6 +10,9 @@ set -euo pipefail
 RETENTION_COUNT="${XVC_BACKUP_RETENTION:-14}"
 
 # ConnectionStrings__SqlDb = "Data Source=/var/lib/xvideocollector/xvideocollector.db"
+# systemd の EnvironmentFile (/etc/xvideocollector/xvideocollector.env) から渡るため、
+# このスクリプト内での代入は無い。
+# shellcheck disable=SC2154
 DB_PATH="${ConnectionStrings__SqlDb#Data Source=}"
 DB_PATH="${DB_PATH#"${DB_PATH%%[![:space:]]*}"}"
 

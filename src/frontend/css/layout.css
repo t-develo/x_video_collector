@@ -81,6 +81,16 @@
   z-index: 1000;
 }
 
+/* 狭い画面では右端から 32px 空けたうえに最大 400px のトーストを置くと
+   画面外にはみ出すため、左右いっぱいに広げる。 */
+@media (max-width: 768px) {
+  #toast-container {
+    bottom: var(--space-md);
+    right: var(--space-md);
+    left: var(--space-md);
+  }
+}
+
 /* ========== 検索バー ========== */
 
 .search-bar {
@@ -111,7 +121,7 @@
   border: none;
   outline: none;
   color: var(--color-text-primary);
-  font-size: var(--text-sm);
+  font-size: var(--text-control);
   font-family: var(--font-sans);
 }
 
@@ -153,6 +163,18 @@
   color: var(--color-accent);
 }
 
+/* タッチ端末では指で押せる大きさ (44px) を確保する。 */
+@media (pointer: coarse) {
+  .filter-toggle-btn {
+    min-height: 44px;
+  }
+
+  .search-bar__clear {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 /* ========== フィルターパネル ========== */
 
 .filter-container {
@@ -184,7 +206,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  font-size: var(--text-sm);
+  font-size: var(--text-control);
   padding: var(--space-xs) var(--space-sm);
 }
 
@@ -273,7 +295,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  font-size: var(--text-sm);
+  font-size: var(--text-control);
   padding: var(--space-xs) var(--space-sm);
 }
 

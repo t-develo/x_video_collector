@@ -267,23 +267,44 @@ func start
 
 ### CI（自動テスト・ビルド）
 
-トリガー: `feature/**`, `claude/**` ブランチへの push、`main` への PR
+トリガー: `main`, `feature/sprint**`, `claude/**` ブランチへの push、`main` への PR
 
 | ジョブ | 内容 |
 |--------|------|
 | dotnet-test | .NET ビルド + 全テスト |
 | js-test | Vitest フロントエンドテスト |
+| shell-lint | ラズパイ用スクリプトの構文チェック + ShellCheck |
+| build-localhost-arm64 | ラズパイ (linux-arm64) 向け発行の検証 |
 | build-functions | Azure Functions Publish（アーティファクト保存） |
 
-### Deploy（自動デプロイ）
+### Deploy（Azure への自動デプロイ）
 
 トリガー: `main` ブランチへの push
 
 | ジョブ | 内容 |
 |--------|------|
 | infra | Bicep インフラデプロイ |
+| migrate-database | EF Core マイグレーション適用 |
 | deploy-functions | Azure Functions デプロイ |
 | deploy-frontend | Static Web Apps デプロイ |
+
+### ラズパイの自動更新
+
+Azure を使わないスタンドアロン運用（`XVideoCollector.LocalHost`）では、
+ラズパイ側の systemd timer が `origin/main` を**日次で監視**して自動更新する。
+
+| ユニット | 内容 |
+|---------|------|
+| xvideocollector-update.timer | 日次で発火（`Persistent=true`, `RandomizedDelaySec=1h`） |
+| xvideocollector-update.service | `origin/main` に新コミットがあれば pull → 再発行 → 再起動 → ヘルスチェック |
+
+- 更新が無ければ `git fetch` とコミットハッシュの比較だけで終わり、再発行は走らない
+- ダウンロード/変換の実行中は見送り、次回の発火で再挑戦する
+- 発行やヘルスチェックに失敗した場合は旧バージョンへ自動で戻す
+- 既定で有効。`install.sh --no-auto-update` で無効にでき、
+  後からは `systemctl disable --now xvideocollector-update.timer` で止められる
+
+詳細は [docs/raspberry-pi.md](docs/raspberry-pi.md) を参照。
 
 ## 環境変数
 

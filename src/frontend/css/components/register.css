@@ -55,7 +55,7 @@
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-control);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   box-sizing: border-box;
 }
@@ -205,8 +205,9 @@
 /* ========== レスポンシブ ========== */
 
 @media (max-width: 768px) {
+  /* #main-content が既に左右 16px の余白を持つため上下だけにする */
   .register-page {
-    padding: var(--space-lg) var(--space-md);
+    padding: var(--space-lg) 0;
   }
 
   .register-form {

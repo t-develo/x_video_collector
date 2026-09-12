@@ -40,11 +40,14 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # shellcheck source=scripts/raspi/_common.sh
 source "${SCRIPT_DIR}/_common.sh"
 
-XVC_USER="xvc"
 APP_DIR="/opt/xvideocollector"
+DATA_DIR="/var/lib/xvideocollector"
 CONFIG_DIR="/etc/xvideocollector"
 SCRIPT_INSTALL_DIR="/opt/xvideocollector/scripts"
-DOTNET_BIN="/opt/dotnet/dotnet"
+# 導入時の値は後段（root チェック後）で既存の構成から復元する
+XVC_USER=""
+DOTNET_BIN=""
+YTDLP_BIN=""
 
 DO_PULL=1
 TARGET_BRANCH=""
@@ -96,18 +99,35 @@ if ! acquire_update_lock; then
   exit 0
 fi
 
+ENV_FILE="${CONFIG_DIR}/xvideocollector.env"
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  err "${ENV_FILE} がありません。先に install.sh を実行してください。"
+  exit 1
+fi
+
+# ── 導入時の構成を復元 ─────────────────────────────────────
+# systemd ユニットを描き直すために、install.sh が使った値を
+# 導入済みユニットと env ファイルから拾い直す。
+# 取れなかった場合は既定値にフォールバックする。
+XVC_USER="$(read_installed_user)"
+if [[ -z "$XVC_USER" ]]; then
+  XVC_USER="xvc"
+  warn "導入済みユニットから実行ユーザーを特定できないため ${XVC_USER} を使います"
+fi
+
+DOTNET_BIN="$(read_installed_dotnet)"
+[[ -n "$DOTNET_BIN" && -x "$DOTNET_BIN" ]] || DOTNET_BIN="/opt/dotnet/dotnet"
 [[ -x "$DOTNET_BIN" ]] || DOTNET_BIN="$(command -v dotnet || true)"
 if [[ -z "$DOTNET_BIN" || ! -x "$DOTNET_BIN" ]]; then
   err "dotnet が見つかりません。先に install.sh を実行してください。"
   exit 1
 fi
 
-if [[ ! -f "${CONFIG_DIR}/xvideocollector.env" ]]; then
-  err "${CONFIG_DIR}/xvideocollector.env がありません。先に install.sh を実行してください。"
-  exit 1
-fi
+YTDLP_BIN="$(read_configured_ytdlp "$ENV_FILE")"
+[[ -n "$YTDLP_BIN" ]] || YTDLP_BIN="/usr/local/bin/yt-dlp"
 
-PORT="$(read_configured_port "${CONFIG_DIR}/xvideocollector.env")"
+PORT="$(read_configured_port "$ENV_FILE")"
 HEALTH_URL="http://127.0.0.1:${PORT}/api/health"
 STATS_URL="http://127.0.0.1:${PORT}/api/stats"
 
@@ -240,11 +260,15 @@ chmod -R g+rX "$APP_DIR"
 install -m 750 -o root -g "$XVC_USER" "${SCRIPT_DIR}/backup.sh" "${SCRIPT_INSTALL_DIR}/backup.sh"
 success "発行完了"
 
-# 失敗時に旧バージョンへ戻す
+UNIT_BACKUP_DIR="${BACKUP_DIR}.units"
+rm -rf "$UNIT_BACKUP_DIR"
+
+# 失敗時に旧バージョンへ戻す（アプリとユニットは同じコミットから作るので対で戻す）
 rollback() {
   err "旧バージョンへ戻しています..."
   rm -rf "$APP_DIR"
   mv "$BACKUP_DIR" "$APP_DIR"
+  restore_systemd_units "$UNIT_BACKUP_DIR"
   if systemctl restart "$XVC_SERVICE"; then
     warn "旧バージョン (${OLD_REV:0:7}) で復帰しました。更新は適用されていません。"
   else
@@ -253,7 +277,24 @@ rollback() {
   fi
 }
 
-# ── 3. 再起動と確認 ────────────────────────────────────────
+# ── 3. systemd ユニットの同期 ──────────────────────────────
+# 再起動の前に行う。ユニットが変わっていた場合、直後の restart でそのまま反映される。
+step "systemd ユニットの同期"
+
+if ! SYNC_RESULT="$(sync_systemd_units "${SCRIPT_DIR}/systemd" "$UNIT_BACKUP_DIR")"; then
+  err "systemd ユニットの同期に失敗しました。"
+  rollback
+  exit 1
+fi
+
+if [[ "$SYNC_RESULT" == "新規=0 更新=0" ]]; then
+  info "systemd ユニットに変更はありません"
+else
+  # --quiet でも journald に残るよう echo で出す
+  echo "systemd ユニットを更新しました (${SYNC_RESULT})"
+fi
+
+# ── 4. 再起動と確認 ────────────────────────────────────────
 step "サービス再起動"
 
 if ! systemctl restart "$XVC_SERVICE"; then
@@ -292,15 +333,16 @@ if [[ $HEALTHY -eq 0 ]]; then
   exit 1
 fi
 
-rm -rf "$BACKUP_DIR"
+rm -rf "$BACKUP_DIR" "$UNIT_BACKUP_DIR"
 
-# systemd ユニットやインストーラ自体の変更は、このスクリプトでは反映できない
-# （実行中のユニットファイルを自分で書き換えるのは危険なため）。気付けるよう警告に留める。
+# systemd ユニットは同期済み。一方、install.sh 自体と env の雛形は
+# このスクリプトでは反映できない（依存の導入や設定生成を伴うため）。
+# 差分があった場合だけ気付けるよう警告を残す。
 if [[ -n "$OLD_REV" ]]; then
   CHANGED_INSTALLER="$(git_repo diff --name-only "$OLD_REV" HEAD -- \
-    scripts/raspi/systemd scripts/raspi/install.sh scripts/raspi/xvideocollector.env.example 2>/dev/null || true)"
+    scripts/raspi/install.sh scripts/raspi/xvideocollector.env.example 2>/dev/null || true)"
   if [[ -n "$CHANGED_INSTALLER" ]]; then
-    warn "systemd ユニットまたは設定雛形が更新されています。反映には install.sh の再実行が必要です:"
+    warn "インストーラまたは設定雛形が更新されています。内容によっては install.sh の再実行が必要です:"
     warn "  sudo bash ${REPO_ROOT}/scripts/raspi/install.sh"
     while IFS= read -r f; do warn "    - ${f}"; done <<< "$CHANGED_INSTALLER"
   fi

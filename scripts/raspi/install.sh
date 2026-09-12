@@ -31,7 +31,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 source "${SCRIPT_DIR}/_common.sh"
 
 # ── 既定値 ─────────────────────────────────────────────────
-XVC_USER="xvc"
+XVC_USER=""
 APP_DIR="/opt/xvideocollector"
 DATA_DIR="/var/lib/xvideocollector"
 CONFIG_DIR="/etc/xvideocollector"
@@ -77,14 +77,29 @@ if [[ ! "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
   exit 1
 fi
 
-MEDIA_PATH="${MEDIA_PATH:-${DATA_DIR}/media}"
 ENV_FILE="${CONFIG_DIR}/xvideocollector.env"
 
-# 再インストール時、既存の env は上書きしないため、--port の明示指定が無ければ
-# 現在設定されているポートに合わせる（ポート確認と疎通確認をズレさせないため）
+# 再インストール時、既存の env とユニットは導入時の指定をそのまま保持している。
+# 明示指定が無ければそこから引き継ぐ（素の引数で再実行しても構成を壊さないため）。
+
+# ポート: 確認と疎通確認をズレさせないため既存 env に合わせる
 if [[ $PORT_EXPLICIT -eq 0 && -f "$ENV_FILE" ]]; then
   PORT="$(read_configured_port "$ENV_FILE")"
 fi
+
+# メディア保存先: 既定値に戻すと外部マウント用の drop-in が消えてしまう
+if [[ -z "$MEDIA_PATH" ]]; then
+  MEDIA_PATH="$(read_configured_media_path "$ENV_FILE")"
+  [[ -n "$MEDIA_PATH" ]] && info "メディア保存先を既存の設定から引き継ぎます: ${MEDIA_PATH}"
+fi
+MEDIA_PATH="${MEDIA_PATH:-${DATA_DIR}/media}"
+
+# 実行ユーザー: 既定値に戻すとファイルの所有者と噛み合わなくなる
+if [[ -z "$XVC_USER" ]]; then
+  XVC_USER="$(read_installed_user)"
+  [[ -n "$XVC_USER" ]] && info "サービス実行ユーザーを既存のユニットから引き継ぎます: ${XVC_USER}"
+fi
+XVC_USER="${XVC_USER:-xvc}"
 
 # ── 事前チェック ───────────────────────────────────────────
 step "事前チェック"
@@ -120,7 +135,7 @@ fi
 # 塞がったまま進めると最後の systemctl enable --now で必ず失敗する。
 # 稼働中・再起動ループ中のどちらも止める。
 # （発行中に旧プロセスが動いたままだと DLL を上書きすることになる）
-if [[ -f "/etc/systemd/system/${XVC_SERVICE}" ]]; then
+if [[ -f "${XVC_UNIT_DIR}/${XVC_SERVICE}" ]]; then
   info "既存の ${XVC_SERVICE} を停止します（再インストールのため）"
   systemctl stop "$XVC_SERVICE" 2>/dev/null || true
 fi
@@ -251,30 +266,14 @@ success "発行完了: ${APP_DIR}"
 # ── systemd ユニット ───────────────────────────────────────
 step "systemd サービス登録"
 
-render_unit() {
-  local src="$1" dest="$2"
-  sed \
-    -e "s|__XVC_USER__|${XVC_USER}|g" \
-    -e "s|__XVC_APP_DIR__|${APP_DIR}|g" \
-    -e "s|__XVC_DATA_DIR__|${DATA_DIR}|g" \
-    -e "s|__XVC_CONFIG_DIR__|${CONFIG_DIR}|g" \
-    -e "s|__XVC_SCRIPT_DIR__|${SCRIPT_INSTALL_DIR}|g" \
-    -e "s|__XVC_DOTNET__|${DOTNET_BIN}|g" \
-    -e "s|__XVC_YTDLP__|${YTDLP_BIN}|g" \
-    -e "s|__XVC_REPO_DIR__|${REPO_ROOT}|g" \
-    "$src" > "$dest"
-}
-
-for unit in xvideocollector.service \
-            xvideocollector-ytdlp-update.service xvideocollector-ytdlp-update.timer \
-            xvideocollector-backup.service xvideocollector-backup.timer \
-            xvideocollector-update.service xvideocollector-update.timer; do
-  render_unit "${SCRIPT_DIR}/systemd/${unit}" "/etc/systemd/system/${unit}"
+# render_unit は _common.sh 提供（update.sh からも使うため共通化してある）
+for unit in "${SCRIPT_DIR}"/systemd/*; do
+  render_unit "$unit" "${XVC_UNIT_DIR}/$(basename "$unit")"
 done
 
 # メディアが別マウントの場合、マウント完了を待ってから起動させる
 MEDIA_MOUNT="$(findmnt -no TARGET --target "$MEDIA_PATH" 2>/dev/null || echo /)"
-DROPIN_DIR="/etc/systemd/system/xvideocollector.service.d"
+DROPIN_DIR="${XVC_UNIT_DIR}/xvideocollector.service.d"
 if [[ "$MEDIA_MOUNT" != "/" ]]; then
   mkdir -p "$DROPIN_DIR"
   cat > "${DROPIN_DIR}/mount.conf" <<EOF

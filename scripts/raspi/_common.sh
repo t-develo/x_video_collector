@@ -7,6 +7,8 @@
 XVC_SERVICE="xvideocollector.service"
 XVC_ENV_FILE="/etc/xvideocollector/xvideocollector.env"
 XVC_LOCK_FILE="/run/xvideocollector-update.lock"
+# systemd ユニットの配置先。テストで差し替えられるよう変数にしている。
+XVC_UNIT_DIR="${XVC_UNIT_DIR:-/etc/systemd/system}"
 
 # ── 排他制御 ───────────────────────────────────────────────
 
@@ -21,6 +23,54 @@ acquire_update_lock() {
 
   exec 9>"$XVC_LOCK_FILE"
   flock -n 9
+}
+
+# ── 導入済み構成の読み出し ─────────────────────────────────
+#
+# install.sh の再実行や update.sh からのユニット再描画では、
+# 導入時に指定された値（実行ユーザー・各種パス）を復元する必要がある。
+# 値は env ファイルと導入済みユニットの両方に残っているのでそこから拾う。
+
+# env ファイルから指定キーの値を取り出す（見つからなければ空文字）。
+#   read_env_value /etc/xvideocollector/xvideocollector.env LocalStorage__RootPath
+read_env_value() {
+  local env_file="$1" key="$2"
+
+  [[ -f "$env_file" ]] || return 0
+
+  # コメント行 (#) は拾わない。値に = が含まれていても最初の = で切る。
+  sed -n "s|^${key}=||p" "$env_file" | head -1
+}
+
+# メディア保存先 (LocalStorage__RootPath)。未設定なら空文字。
+read_configured_media_path() {
+  read_env_value "${1:-$XVC_ENV_FILE}" LocalStorage__RootPath
+}
+
+# yt-dlp の実行ファイルパス (YtDlp__ExecutablePath)。未設定なら空文字。
+read_configured_ytdlp() {
+  read_env_value "${1:-$XVC_ENV_FILE}" YtDlp__ExecutablePath
+}
+
+# 導入済みユニットから指定ディレクティブの値を取り出す（未導入なら空文字）。
+#   read_installed_unit_value User
+read_installed_unit_value() {
+  local key="$1" unit_file="${XVC_UNIT_DIR}/${XVC_SERVICE}"
+
+  [[ -f "$unit_file" ]] || return 0
+
+  sed -n "s|^${key}=||p" "$unit_file" | head -1
+}
+
+# サービス実行ユーザー。未導入なら空文字。
+read_installed_user() {
+  read_installed_unit_value User
+}
+
+# dotnet の実行ファイルパス。ExecStart の第1トークンとして入っている。
+# 未導入なら空文字。
+read_installed_dotnet() {
+  read_installed_unit_value ExecStart | awk '{print $1}'
 }
 
 # ── ポート ─────────────────────────────────────────────────
@@ -188,6 +238,123 @@ dump_service_diagnostics() {
     report_port_conflict "$port"
     echo
   fi
+}
+
+# ── systemd ユニット ───────────────────────────────────────
+
+# ユニットテンプレートのプレースホルダを実際の値へ置き換えて書き出す。
+# 呼び出し側が次のグローバルを定義しておくこと:
+#   XVC_USER / APP_DIR / DATA_DIR / CONFIG_DIR / SCRIPT_INSTALL_DIR
+#   DOTNET_BIN / YTDLP_BIN / REPO_ROOT
+#   render_unit scripts/raspi/systemd/xvideocollector.service /etc/systemd/system/xvideocollector.service
+render_unit() {
+  local src="$1" dest="$2"
+  sed \
+    -e "s|__XVC_USER__|${XVC_USER}|g" \
+    -e "s|__XVC_APP_DIR__|${APP_DIR}|g" \
+    -e "s|__XVC_DATA_DIR__|${DATA_DIR}|g" \
+    -e "s|__XVC_CONFIG_DIR__|${CONFIG_DIR}|g" \
+    -e "s|__XVC_SCRIPT_DIR__|${SCRIPT_INSTALL_DIR}|g" \
+    -e "s|__XVC_DOTNET__|${DOTNET_BIN}|g" \
+    -e "s|__XVC_YTDLP__|${YTDLP_BIN}|g" \
+    -e "s|__XVC_REPO_DIR__|${REPO_ROOT}|g" \
+    "$src" > "$dest"
+}
+
+# systemctl の呼び出しはテストで差し替えられるよう関数にしておく。
+xvc_daemon_reload() { systemctl daemon-reload; }
+xvc_enable_unit()   { systemctl enable --now "$1"; }
+
+# テンプレートを描画し、導入済みのユニットと内容比較して差分があるものだけ入れ替える。
+#
+# 第1引数: テンプレートのあるディレクトリ (scripts/raspi/systemd)
+# 第2引数: 置換前のユニットを退避するディレクトリ（ロールバック用・省略可）
+#
+# 標準出力に "新規=<n> 更新=<n>" を返し、変更が無ければ両方 0 になる。
+#
+# 新規に配置したタイマーだけ enable する。既に存在するタイマーは触らない
+# （利用者が意図的に disable したものを勝手に有効化しないため）。
+#
+# 実行中の xvideocollector-update.service 自身のファイルも書き換わりうるが、
+# systemd はユニットを起動時に読み込み済みなので走っているインスタンスには
+# 影響しない。新しい内容は次回の発火から効く。
+sync_systemd_units() {
+  local template_dir="$1" backup_dir="${2:-}"
+  local tmp_dir name rendered installed
+  local -a new_units=() changed_units=()
+
+  tmp_dir="$(mktemp -d)"
+
+  for src in "${template_dir}"/*; do
+    [[ -f "$src" ]] || continue
+    name="$(basename "$src")"
+    rendered="${tmp_dir}/${name}"
+    installed="${XVC_UNIT_DIR}/${name}"
+
+    render_unit "$src" "$rendered"
+
+    if [[ ! -f "$installed" ]]; then
+      new_units+=("$name")
+    elif ! cmp -s "$rendered" "$installed"; then
+      changed_units+=("$name")
+    fi
+  done
+
+  if [[ ${#new_units[@]} -eq 0 && ${#changed_units[@]} -eq 0 ]]; then
+    rm -rf "$tmp_dir"
+    echo "新規=0 更新=0"
+    return 0
+  fi
+
+  mkdir -p "$XVC_UNIT_DIR"
+
+  # 置換されるものだけ退避する（新規は戻す対象が無い）
+  if [[ -n "$backup_dir" ]]; then
+    mkdir -p "$backup_dir"
+    for name in "${changed_units[@]}"; do
+      cp -p "${XVC_UNIT_DIR}/${name}" "${backup_dir}/${name}"
+    done
+    # 新規だったものはロールバック時に削除する必要があるため記録しておく
+    : > "${backup_dir}/.added"
+    if [[ ${#new_units[@]} -gt 0 ]]; then
+      printf '%s\n' "${new_units[@]}" > "${backup_dir}/.added"
+    fi
+  fi
+
+  for name in "${new_units[@]}" "${changed_units[@]}"; do
+    install -m 644 "${tmp_dir}/${name}" "${XVC_UNIT_DIR}/${name}"
+  done
+
+  rm -rf "$tmp_dir"
+  xvc_daemon_reload
+
+  for name in "${new_units[@]}"; do
+    [[ "$name" == *.timer ]] || continue
+    xvc_enable_unit "$name"
+  done
+
+  echo "新規=${#new_units[@]} 更新=${#changed_units[@]}"
+}
+
+# sync_systemd_units が退避したユニットを書き戻す。
+# 新規に追加されたユニットは削除する（更新前の状態に戻すため）。
+restore_systemd_units() {
+  local backup_dir="$1" name
+
+  [[ -d "$backup_dir" ]] || return 0
+
+  if [[ -f "${backup_dir}/.added" ]]; then
+    while IFS= read -r name; do
+      [[ -n "$name" ]] && rm -f "${XVC_UNIT_DIR}/${name}"
+    done < "${backup_dir}/.added"
+  fi
+
+  for file in "${backup_dir}"/*; do
+    [[ -f "$file" ]] || continue
+    install -m 644 "$file" "${XVC_UNIT_DIR}/$(basename "$file")"
+  done
+
+  xvc_daemon_reload
 }
 
 # 起動に失敗したユニットを停止し、再起動ループ（Restart=always）を断ち切る。

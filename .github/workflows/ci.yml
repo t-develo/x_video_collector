@@ -92,28 +92,39 @@ jobs:
           done
 
       - name: ShellCheck
-        run: shellcheck -x -S warning scripts/raspi/*.sh
+        run: shellcheck -x -S warning scripts/raspi/*.sh tests/shell/*.sh
 
-      # install.sh が置換するプレースホルダの取りこぼしを防ぐ
-      - name: Verify systemd unit placeholders are rendered
+      # ユニット同期（差分検出・冪等性・ロールバック）と設定の引き継ぎを検証する。
+      # 配置先は XVC_UNIT_DIR で差し替え、systemctl はスタブ化しているため
+      # systemd の無い runner でも動く。
+      - name: Test raspi scripts
+        run: bash tests/shell/raspi-scripts.test.sh
+
+      # 描画したユニットが systemd の文法として妥当か確認する。
+      # verify は ExecStart の実体が無いと落ちるため、runner に存在するパスを
+      # 差し込んで描画する（検証したいのは文法であってパスではない）。
+      - name: Verify rendered units parse
         run: |
           set -euo pipefail
           out="$(mktemp -d)"
+          stub="$(mktemp -d)"
+          printf '#!/bin/sh\n' > "${stub}/backup.sh"
+          chmod +x "${stub}/backup.sh"
+          XVC_UNIT_DIR="$out"
+          # shellcheck source=scripts/raspi/_common.sh
+          source scripts/raspi/_common.sh
+          XVC_USER=root
+          APP_DIR=/opt/xvideocollector
+          DATA_DIR=/var/lib/xvideocollector
+          CONFIG_DIR=/etc/xvideocollector
+          SCRIPT_INSTALL_DIR="$stub"
+          DOTNET_BIN=/bin/echo
+          YTDLP_BIN=/bin/echo
+          REPO_ROOT="$PWD"
           for unit in scripts/raspi/systemd/*; do
-            sed -e 's|__XVC_USER__|xvc|g' \
-                -e 's|__XVC_APP_DIR__|/opt/xvideocollector|g' \
-                -e 's|__XVC_DATA_DIR__|/var/lib/xvideocollector|g' \
-                -e 's|__XVC_CONFIG_DIR__|/etc/xvideocollector|g' \
-                -e 's|__XVC_SCRIPT_DIR__|/opt/xvideocollector/scripts|g' \
-                -e 's|__XVC_DOTNET__|/opt/dotnet/dotnet|g' \
-                -e 's|__XVC_YTDLP__|/usr/local/bin/yt-dlp|g' \
-                -e 's|__XVC_REPO_DIR__|/home/pi/x_video_collector|g' \
-                "$unit" > "${out}/$(basename "$unit")"
+            render_unit "$unit" "${out}/$(basename "$unit")"
           done
-          if grep -rn '__XVC_' "$out"; then
-            echo "install.sh の render_unit に置換が定義されていないプレースホルダがあります" >&2
-            exit 1
-          fi
+          systemd-analyze verify "${out}"/*.service "${out}"/*.timer
 
   build-localhost-arm64:
     name: Publish LocalHost (linux-arm64)

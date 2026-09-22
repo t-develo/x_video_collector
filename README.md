@@ -273,7 +273,7 @@ func start
 |--------|------|
 | dotnet-test | .NET ビルド + 全テスト |
 | js-test | Vitest フロントエンドテスト |
-| shell-lint | ラズパイ用スクリプトの構文チェック + ShellCheck |
+| shell-lint | ラズパイ用スクリプトの構文チェック + ShellCheck + ユニット同期のテスト |
 | build-localhost-arm64 | ラズパイ (linux-arm64) 向け発行の検証 |
 | build-functions | Azure Functions Publish（アーティファクト保存） |
 
@@ -300,6 +300,8 @@ Azure を使わないスタンドアロン運用（`XVideoCollector.LocalHost`�
 
 - 更新が無ければ `git fetch` とコミットハッシュの比較だけで終わり、再発行は走らない
 - ダウンロード/変換の実行中は見送り、次回の発火で再挑戦する
+- systemd ユニットも毎回比較して差分だけ同期するため、`install.sh` の再実行は不要
+  （意図的に `disable` したタイマーは有効化しない）
 - 発行やヘルスチェックに失敗した場合は旧バージョンへ自動で戻す
 - 既定で有効。`install.sh --no-auto-update` で無効にでき、
   後からは `systemctl disable --now xvideocollector-update.timer` で止められる

@@ -96,15 +96,27 @@ sudo bash scripts/raspi/install.sh
 
 | オプション | 説明 | 既定 |
 |-----------|------|------|
-| `--media-path <PATH>` | 動画の保存先 | `/var/lib/xvideocollector/media` |
-| `--port <PORT>` | 待ち受けポート | `8080`（既存 env があればその値） |
-| `--user <NAME>` | サービス実行ユーザー | `xvc` |
+| `--media-path <PATH>` | 動画の保存先 | 既存の設定、無ければ `/var/lib/xvideocollector/media` |
+| `--port <PORT>` | 待ち受けポート | 既存の設定、無ければ `8080` |
+| `--user <NAME>` | サービス実行ユーザー | 既存の設定、無ければ `xvc` |
 | `--skip-deps` | .NET / ffmpeg / yt-dlp の導入をスキップ | — |
+| `--no-auto-update` | 自動更新タイマーを有効化しない | （自動更新は既定で有効） |
 
-`/etc/xvideocollector/xvideocollector.env` が既にある再インストールでは、設定を失わない
+**再インストール時は、省略したオプションを既存の環境から引き継ぐ。**
+保存先は `xvideocollector.env` の `LocalStorage__RootPath` から、実行ユーザーは
+導入済みユニットの `User=` から読み戻す。そのため
+
+```bash
+sudo bash scripts/raspi/install.sh
+```
+
+を素の引数で実行しても、外付けドライブ運用や独自ユーザーの構成は壊れない。
+変更したいときだけオプションを明示する。
+
+`/etc/xvideocollector/xvideocollector.env` が既にある場合、設定を失わない
 ようファイル全体は上書きしない。ただし `--port` を明示した場合は
-`ASPNETCORE_URLS` のポート番号だけを書き換える（`--port` を省略した場合は env 側の
-ポートに合わせる）。ポート以外の設定を変えるときは env を直接編集する。
+`ASPNETCORE_URLS` のポート番号だけを書き換える。
+ポート以外の設定を変えるときは env を直接編集する。
 
 ```bash
 # 8080 で導入済みの環境を 58180 に移す
@@ -171,9 +183,11 @@ git fetch origin main
        ├─ git pull --ff-only
        ├─ dotnet publish → 一時ディレクトリ
        ├─ 旧バージョンを退避してから入れ替え
+       ├─ systemd ユニットを同期（差分があるものだけ入れ替え）
        ├─ サービス再起動 → ヘルスチェック
        │    ├─ OK → 完了
        │    └─ NG → 旧バージョンへ自動で戻して再起動
+       │            （アプリと systemd ユニットの両方を戻す）
        └─ 完了
 ```
 
@@ -216,13 +230,50 @@ OnCalendar=*-*-* 00/6:00:00
 | コミットしていない変更がある | ローカルの変更を失わないため |
 | `--ff-only` でマージできない | 履歴が分岐している。手動での解決が必要 |
 
-`systemd` ユニットや `xvideocollector.env` の雛形が更新された場合は自動では反映されない
-（実行中のユニットを自分で書き換えるのを避けるため）。
-その場合はログに警告が出るので、`sudo bash scripts/raspi/install.sh` を実行し直す。
+#### systemd ユニットの同期
+
+`update.sh`（自動・手動どちらも）は、リポジトリの `scripts/raspi/systemd/` と
+導入済みユニットを毎回比較し、**差分があるものだけ入れ替えて `daemon-reload`** する。
+ユニットが追加・変更されても `install.sh` を実行し直す必要はない。
+
+導入時に指定した値（実行ユーザー・`dotnet` / `yt-dlp` のパス）は、
+導入済みユニットと `xvideocollector.env` から読み戻して描画するため、
+`--user` などを指定して導入した環境でも設定が失われない。
+
+いくつか意図的にそうしている点がある:
+
+- **新規に追加されたタイマーだけ `enable` する。**
+  意図的に `disable` したタイマーは、更新しても有効化されない
+- **`mount.conf` drop-in は同期しない。**
+  マウント構成はコード更新で変わるものではなく、`install.sh` の管轄
+- **`install.sh` 自体と `xvideocollector.env.example` の変更は反映されない。**
+  依存の導入や設定生成を伴うため。差分があった場合はログに警告が出るので、
+  内容を見て必要なら `sudo bash scripts/raspi/install.sh` を実行し直す
 
 自動更新・手動更新・`install.sh` は同じロック (`/run/xvideocollector-update.lock`) を取るため、
 同時に走って発行先を壊すことはない。自動更新は競合したら見送り、
 `install.sh` は競合したらエラーで止まる。
+
+#### 自動更新が入っていない環境からの移行
+
+自動更新タイマーより前に導入した環境では、タイマーがまだ存在しない。
+**`update.sh` を 2 回実行**すれば導入される。
+
+```bash
+cd ~/x_video_collector
+sudo bash scripts/raspi/update.sh   # 1回目: 新しい update.sh を取得する
+sudo bash scripts/raspi/update.sh   # 2回目: 新ロジックがユニットを配置する
+```
+
+1回目に動いているのは更新前の `update.sh` で、ユニット同期の処理をまだ持たない。
+そのため 2 回必要になる（`sudo bash scripts/raspi/install.sh` を 1 回実行しても同じ）。
+
+導入されたことの確認:
+
+```bash
+systemctl list-timers 'xvideocollector-update*'
+systemctl is-enabled xvideocollector-update.timer   # → enabled
+```
 
 #### 手動更新
 

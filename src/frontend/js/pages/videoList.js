@@ -5,6 +5,7 @@ import { api } from '../api.js';
 import { createVideoCard } from '../components/videoCard.js';
 import { createSearchBar } from '../components/searchBar.js';
 import { createFilterPanel } from '../components/filterPanel.js';
+import { createQuickRegisterForm } from '../components/quickRegister.js';
 import { createSkeletonGrid } from '../components/skeleton.js';
 import { navigateTo, getCurrentQueryParams, setQueryParams } from '../router.js';
 import { formatFileSize } from '../utils/format.js';
@@ -277,12 +278,47 @@ export async function renderVideoListPage(container) {
   // コンテンツエリア
   const content = createElement('div', { className: 'video-list-content' });
 
+  /** 進行中のフェッチをキャンセルするための AbortController */
+  let currentFetchController = /** @type {AbortController|null} */ (null);
+
+  /** デバウンス用タイマー ID */
+  let debounceTimer = /** @type {ReturnType<typeof setTimeout>|null} */ (null);
+
+  // クイック登録フォーム（登録後は 1 ページ目と統計を再取得する）
+  const quickRegisterEl = createQuickRegisterForm({
+    onRegistered: async () => {
+      currentPage = 1;
+      syncUrlAndFetch(true);
+      await refreshStats();
+    },
+  });
+
+  pageEl.appendChild(quickRegisterEl);
   pageEl.appendChild(statsContainer);
   pageEl.appendChild(header);
   pageEl.appendChild(filterContainer);
   pageEl.appendChild(controls);
   pageEl.appendChild(content);
   container.appendChild(pageEl);
+
+  /**
+   * 統計バーを描画する
+   * @param {object|null|undefined} stats
+   */
+  function renderStats(stats) {
+    if (!stats) return;
+    clearChildren(statsContainer);
+    statsContainer.appendChild(createStatsBar(stats));
+  }
+
+  /** 統計を再取得して描画する（失敗時は現在の表示を維持） */
+  async function refreshStats() {
+    try {
+      renderStats(await api.getStats());
+    } catch (_err) {
+      // 統計取得失敗は無視
+    }
+  }
 
   // 統計・タグ・カテゴリを並列取得
   try {
@@ -292,10 +328,7 @@ export async function renderVideoListPage(container) {
       api.get('/categories'),
     ]);
 
-    if (statsResult) {
-      clearChildren(statsContainer);
-      statsContainer.appendChild(createStatsBar(statsResult));
-    }
+    renderStats(statsResult);
 
     allTags = tagsResult ?? [];
     allCategories = categoriesResult ?? [];
@@ -320,12 +353,6 @@ export async function renderVideoListPage(container) {
     },
   });
   filterContainer.appendChild(filterPanelEl);
-
-  /** 進行中のフェッチをキャンセルするための AbortController */
-  let currentFetchController = /** @type {AbortController|null} */ (null);
-
-  /** デバウンス用タイマー ID */
-  let debounceTimer = /** @type {ReturnType<typeof setTimeout>|null} */ (null);
 
   /**
    * URL クエリパラメータを更新してからデータをフェッチする（デバウンスあり）

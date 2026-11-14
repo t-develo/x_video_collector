@@ -6,6 +6,18 @@ vi.mock('../../../src/frontend/js/api.js', () => ({
   api: {
     get: vi.fn(),
     getStats: vi.fn(),
+    post: vi.fn(),
+  },
+  ApiError: class ApiError extends Error {},
+}));
+
+// toast モジュールをモック（クイック登録フォームが依存）
+vi.mock('../../../src/frontend/js/components/toast.js', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
   },
 }));
 
@@ -206,6 +218,37 @@ describe('renderVideoListPage', () => {
     expect(grid).not.toBeNull();
     const cards = grid.querySelectorAll('.video-card');
     expect(cards.length).toBe(3);
+  });
+
+  it('トップにクイック登録フォームが表示される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    await setupApiMock(api.get, api.getStats, { items: [], totalCount: 0, page: 1, pageSize: 20 });
+
+    await renderVideoListPage(container);
+
+    const form = container.querySelector('form.quick-register');
+    expect(form).not.toBeNull();
+    expect(container.querySelector('.video-list-page').firstElementChild).toBe(form);
+  });
+
+  it('クイック登録成功後に一覧と統計が再取得される', async () => {
+    const { api } = await import('../../../src/frontend/js/api.js');
+    await setupApiMock(api.get, api.getStats, { items: [], totalCount: 0, page: 1, pageSize: 20 });
+    api.post.mockResolvedValue({ id: 'new' });
+    await renderVideoListPage(container);
+    const videoFetchCount = () => api.get.mock.calls.filter(([url]) => url.startsWith('/videos?')).length;
+    const fetchesBefore = videoFetchCount();
+    const statsBefore = api.getStats.mock.calls.length;
+    const form = container.querySelector('form.quick-register');
+    form.querySelector('input').value = 'https://x.com/user/status/1234567890';
+
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+
+    await vi.waitFor(() => {
+      expect(api.getStats.mock.calls.length).toBe(statsBefore + 1);
+    });
+    expect(api.post).toHaveBeenCalledWith('/videos', { tweetUrl: 'https://x.com/user/status/1234567890' });
+    expect(videoFetchCount()).toBe(fetchesBefore + 1);
   });
 
   it('動画がない場合に空状態が表示される', async () => {

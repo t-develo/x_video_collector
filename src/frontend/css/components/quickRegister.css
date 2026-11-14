@@ -1,0 +1,119 @@
+/* quickRegister.css — トップページのクイック登録フォーム */
+
+.quick-register {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-lg);
+}
+
+.quick-register__row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.quick-register__input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-control);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.quick-register__input:focus {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.15);
+}
+
+.quick-register__input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.quick-register__input--error,
+.quick-register__input--error:focus {
+  border-color: var(--color-danger);
+}
+
+.quick-register__input--error:focus {
+  box-shadow: 0 0 0 3px rgba(255, 71, 87, 0.15);
+}
+
+.quick-register__input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.quick-register__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+  padding: var(--space-sm) var(--space-xl);
+  background-color: var(--color-accent);
+  color: #0a0a0a;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.quick-register__btn:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
+}
+
+.quick-register__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.quick-register__spinner {
+  display: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(10, 10, 10, 0.3);
+  border-top-color: #0a0a0a;
+  border-radius: 50%;
+  animation: quick-register-spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+.quick-register__btn--loading .quick-register__spinner {
+  display: block;
+}
+
+@keyframes quick-register-spin {
+  to { transform: rotate(360deg); }
+}
+
+.quick-register__error {
+  font-size: var(--text-xs);
+  color: var(--color-danger);
+  margin: 0;
+  white-space: pre-line;
+}
+
+.quick-register__error:empty {
+  display: none;
+}
+
+/* ========== レスポンシブ ========== */
+
+@media (max-width: 768px) {
+  .quick-register__row {
+    flex-direction: column;
+  }
+
+  .quick-register__btn {
+    width: 100%;
+  }
+}
